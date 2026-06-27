@@ -215,6 +215,18 @@ impl App {
                                     .set_keybind_help_offset_from_bottom(offset_from_bottom);
                             }
                         }
+                    } else if let Some(row_index) = self
+                        .state
+                        .keybind_help_row_index_at(mouse.column, mouse.row)
+                    {
+                        if let Some(selected) = crate::ui::keybind_help_selectable_ordinal_for_row(
+                            &self.state,
+                            row_index,
+                        ) {
+                            self.state.keybind_help.selected = selected;
+                            self.state.normalize_keybind_help_selection();
+                            self.execute_selected_keybind_help_command();
+                        }
                     } else {
                         let rect = self.state.keybind_help_popup_rect();
                         let inside = mouse.column >= rect.x
@@ -637,17 +649,13 @@ impl AppState {
         if inner.height < 6 || inner.width < 4 {
             return None;
         }
-        Some(crate::ui::modal_stack_areas(inner, 2, 1, 0, 1).content)
+        Some(crate::ui::modal_stack_areas(inner, 3, 1, 0, 1).content)
     }
 
     fn keybind_help_scroll_metrics(&self) -> Option<crate::pane::ScrollMetrics> {
         let body = self.keybind_help_body_rect()?;
         let viewport_rows = body.height.max(1) as usize;
-        let wrap_width = body.width.max(1) as usize;
-        let total_rows = crate::ui::keybind_help_lines(self)
-            .into_iter()
-            .map(|(width, _)| width.max(1).div_ceil(wrap_width))
-            .sum::<usize>();
+        let total_rows = crate::ui::keybind_help_lines(self).len();
         let max_offset_from_bottom = total_rows.saturating_sub(viewport_rows);
         Some(crate::pane::ScrollMetrics {
             offset_from_bottom: max_offset_from_bottom
@@ -704,6 +712,87 @@ impl AppState {
         let max_scroll = self.keybind_help_max_scroll();
         let current = self.keybind_help.scroll as i16;
         self.keybind_help.scroll = current.saturating_add(delta).clamp(0, max_scroll as i16) as u16;
+    }
+
+    pub(crate) fn normalize_keybind_help_selection(&mut self) {
+        let selectable_count = crate::ui::keybind_help_selectable_count(self);
+        if selectable_count == 0 {
+            self.keybind_help.selected = 0;
+            self.keybind_help.scroll = 0;
+            return;
+        }
+        self.keybind_help.selected = self.keybind_help.selected.min(selectable_count - 1);
+        self.keybind_help.scroll = self.keybind_help.scroll.min(self.keybind_help_max_scroll());
+        self.ensure_keybind_help_selection_visible();
+    }
+
+    pub(crate) fn insert_keybind_help_search_text(&mut self, text: &str) {
+        self.keybind_help.query.push_str(text);
+        self.keybind_help.selected = 0;
+        self.keybind_help.scroll = 0;
+        self.normalize_keybind_help_selection();
+    }
+
+    pub(crate) fn backspace_keybind_help_search(&mut self) {
+        self.keybind_help.query.pop();
+        self.keybind_help.selected = 0;
+        self.keybind_help.scroll = 0;
+        self.normalize_keybind_help_selection();
+    }
+
+    pub(crate) fn clear_keybind_help_search(&mut self) {
+        self.keybind_help.query.clear();
+        self.keybind_help.selected = 0;
+        self.keybind_help.scroll = 0;
+        self.normalize_keybind_help_selection();
+    }
+
+    pub(crate) fn move_keybind_help_selection(&mut self, delta: isize) {
+        let selectable_count = crate::ui::keybind_help_selectable_count(self);
+        if selectable_count == 0 {
+            self.keybind_help.selected = 0;
+            self.keybind_help.scroll = 0;
+            return;
+        }
+        let current = self.keybind_help.selected.min(selectable_count - 1) as isize;
+        self.keybind_help.selected =
+            (current + delta).clamp(0, selectable_count as isize - 1) as usize;
+        self.ensure_keybind_help_selection_visible();
+    }
+
+    fn ensure_keybind_help_selection_visible(&mut self) {
+        let Some(selected_line) = crate::ui::keybind_help_selected_line_index(self) else {
+            return;
+        };
+        let Some(body) = self.keybind_help_body_rect() else {
+            return;
+        };
+        let viewport = body.height as usize;
+        if viewport == 0 {
+            self.keybind_help.scroll = 0;
+            return;
+        }
+        let max_scroll = self.keybind_help_max_scroll() as usize;
+        let scroll = self.keybind_help.scroll as usize;
+        if selected_line < scroll {
+            self.keybind_help.scroll = selected_line.min(max_scroll) as u16;
+        } else if selected_line >= scroll.saturating_add(viewport) {
+            self.keybind_help.scroll = selected_line
+                .saturating_add(1)
+                .saturating_sub(viewport)
+                .min(max_scroll) as u16;
+        }
+    }
+
+    fn keybind_help_row_index_at(&self, col: u16, row: u16) -> Option<usize> {
+        let body = self.keybind_help_body_rect()?;
+        if !rect_contains(body, col, row) {
+            return None;
+        }
+        let line_index = row
+            .saturating_sub(body.y)
+            .saturating_add(self.keybind_help.scroll) as usize;
+        crate::ui::keybind_help_row_index_at_line(self, line_index)
     }
 }
 

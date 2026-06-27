@@ -1926,7 +1926,7 @@ impl App {
                 self.handle_context_menu_key_via_api(key_event);
             }
             Mode::KeybindHelp => {
-                input::handle_keybind_help_key(&mut self.state, key);
+                self.handle_keybind_help_key(key);
             }
             Mode::GlobalMenu => {
                 input::handle_global_menu_key(&mut self.state, key_event);

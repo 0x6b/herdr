@@ -1348,6 +1348,7 @@ pub struct KeybindHelpState {
     pub scroll: u16,
     pub query: String,
     pub search_focused: bool,
+    pub selected: usize,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

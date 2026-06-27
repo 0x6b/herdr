@@ -8854,7 +8854,7 @@ next_tab = ""
     }
 
     #[test]
-    fn semantic_client_down_scrolls_keybind_help() {
+    fn semantic_client_down_selects_next_keybind_help_row() {
         let mut server = test_headless_server();
         server.app.state.mode = crate::app::Mode::KeybindHelp;
         server.clients.insert(
@@ -8888,7 +8888,8 @@ next_tab = ""
         }));
 
         assert_eq!(server.app.state.mode, crate::app::Mode::KeybindHelp);
-        assert_eq!(server.app.state.keybind_help.scroll, 1);
+        assert_eq!(server.app.state.keybind_help.selected, 1);
+        assert_eq!(server.app.state.keybind_help.scroll, 0);
     }
 
     #[tokio::test]

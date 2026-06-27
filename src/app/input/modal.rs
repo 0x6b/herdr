@@ -12,6 +12,7 @@ use crate::{
     },
     input::TerminalKey,
     layout::NavDirection,
+    ui::KeybindHelpCommand,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -103,7 +104,9 @@ pub(super) fn open_keybind_help(state: &mut AppState) {
     state.keybind_help.scroll = 0;
     state.keybind_help.query.clear();
     state.keybind_help.search_focused = false;
+    state.keybind_help.selected = 0;
     state.mode = Mode::KeybindHelp;
+    state.normalize_keybind_help_selection();
 }
 
 fn open_update_release_notes(state: &mut AppState) {
@@ -290,68 +293,187 @@ pub(crate) fn insert_keybind_help_query_text(state: &mut AppState, text: &str) {
     if !state.keybind_help.search_focused {
         return;
     }
-    state
-        .keybind_help
-        .query
-        .extend(text.chars().filter(|ch| !ch.is_control()));
-    state.keybind_help.scroll = 0;
+    let sanitized = text
+        .chars()
+        .filter(|ch| !ch.is_control())
+        .collect::<String>();
+    state.insert_keybind_help_search_text(&sanitized);
 }
 
 pub(super) fn keybind_help_back(state: &mut AppState) {
     if state.keybind_help.search_focused {
-        state.keybind_help.query.clear();
+        state.clear_keybind_help_search();
         state.keybind_help.search_focused = false;
-        state.keybind_help.scroll = 0;
     } else {
         leave_modal(state);
     }
 }
 
-pub(crate) fn handle_keybind_help_key(state: &mut AppState, key: TerminalKey) {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum KeybindHelpKeyOutcome {
+    Handled,
+    ExecuteSelection,
+}
+
+impl App {
+    pub(crate) fn handle_keybind_help_key(&mut self, key: TerminalKey) {
+        if handle_keybind_help_key_state(&mut self.state, key)
+            == KeybindHelpKeyOutcome::ExecuteSelection
+        {
+            self.execute_selected_keybind_help_command();
+        }
+    }
+
+    pub(super) fn execute_selected_keybind_help_command(&mut self) {
+        let Some(command) = crate::ui::keybind_help_selected_command(&self.state) else {
+            return;
+        };
+        self.execute_keybind_help_command(command);
+    }
+
+    fn execute_keybind_help_command(&mut self, command: KeybindHelpCommand) {
+        if command == KeybindHelpCommand::Help {
+            self.state.clear_keybind_help_search();
+            self.state.keybind_help.search_focused = false;
+            return;
+        }
+        if let KeybindHelpCommand::CustomCommand(index) = command {
+            if let Some(binding) = self.state.keybinds.custom_commands.get(index).cloned() {
+                self.launch_custom_command(binding, super::navigate::ActionContext::Prefix);
+            }
+            return;
+        }
+
+        let Some(action) = navigate_action_for_keybind_help_command(command) else {
+            return;
+        };
+        if action == super::navigate::NavigateAction::EditScrollback {
+            self.launch_focused_scrollback_editor();
+            leave_modal(&mut self.state);
+            return;
+        }
+        self.execute_tui_navigate_action(action, super::navigate::ActionContext::Prefix);
+    }
+}
+
+fn handle_keybind_help_key_state(state: &mut AppState, key: TerminalKey) -> KeybindHelpKeyOutcome {
     if state.keybind_help.search_focused {
         let text_char = keybind_help_text_char(key.clone());
         match key.code {
-            KeyCode::Up => state.scroll_keybind_help(-1),
-            KeyCode::Down => state.scroll_keybind_help(1),
-            KeyCode::PageUp => state.scroll_keybind_help(-8),
-            KeyCode::PageDown => state.scroll_keybind_help(8),
-            KeyCode::Home => state.keybind_help.scroll = 0,
-            KeyCode::End => state.keybind_help.scroll = state.keybind_help_max_scroll(),
-            KeyCode::Backspace => {
-                state.keybind_help.query.pop();
-                state.keybind_help.scroll = 0;
+            KeyCode::Up => state.move_keybind_help_selection(-1),
+            KeyCode::Down => state.move_keybind_help_selection(1),
+            KeyCode::Char('p') if key.modifiers == KeyModifiers::CONTROL => {
+                state.move_keybind_help_selection(-1)
             }
+            KeyCode::Char('n') if key.modifiers == KeyModifiers::CONTROL => {
+                state.move_keybind_help_selection(1)
+            }
+            KeyCode::PageUp => state.move_keybind_help_selection(-8),
+            KeyCode::PageDown => state.move_keybind_help_selection(8),
+            KeyCode::Home => {
+                state.keybind_help.selected = 0;
+                state.normalize_keybind_help_selection();
+            }
+            KeyCode::End => {
+                state.keybind_help.selected =
+                    crate::ui::keybind_help_selectable_count(state).saturating_sub(1);
+                state.normalize_keybind_help_selection();
+            }
+            KeyCode::Backspace => state.backspace_keybind_help_search(),
             KeyCode::Char('u') if key.modifiers == KeyModifiers::CONTROL => {
-                state.keybind_help.query.clear();
-                state.keybind_help.scroll = 0;
+                state.clear_keybind_help_search()
             }
             KeyCode::Esc => keybind_help_back(state),
-            KeyCode::Enter => leave_modal(state),
+            KeyCode::Enter => return KeybindHelpKeyOutcome::ExecuteSelection,
             _ => {
                 if let Some(character) = text_char {
                     insert_keybind_help_query_text(state, &character.to_string());
                 }
             }
         }
-        return;
+        return KeybindHelpKeyOutcome::Handled;
     }
 
     match key.code {
-        KeyCode::Up | KeyCode::Char('k') => state.scroll_keybind_help(-1),
-        KeyCode::Down | KeyCode::Char('j') => state.scroll_keybind_help(1),
-        KeyCode::PageUp => state.scroll_keybind_help(-8),
-        KeyCode::PageDown => state.scroll_keybind_help(8),
-        KeyCode::Home => state.keybind_help.scroll = 0,
-        KeyCode::End => state.keybind_help.scroll = state.keybind_help_max_scroll(),
+        KeyCode::Up => state.move_keybind_help_selection(-1),
+        KeyCode::Down => state.move_keybind_help_selection(1),
+        KeyCode::Char('k') => state.scroll_keybind_help(-1),
+        KeyCode::Char('j') => state.scroll_keybind_help(1),
+        KeyCode::PageUp => state.move_keybind_help_selection(-8),
+        KeyCode::PageDown => state.move_keybind_help_selection(8),
+        KeyCode::Home => {
+            state.keybind_help.selected = 0;
+            state.normalize_keybind_help_selection();
+        }
+        KeyCode::End => {
+            state.keybind_help.selected =
+                crate::ui::keybind_help_selectable_count(state).saturating_sub(1);
+            state.normalize_keybind_help_selection();
+        }
         _ if keybind_help_text_char(key.clone()) == Some('/') => {
             state.keybind_help.search_focused = true;
             state.keybind_help.scroll = 0;
         }
         KeyCode::Esc => keybind_help_back(state),
-        KeyCode::Enter => leave_modal(state),
-        _ if keybind_help_text_char(key.clone()) == Some('?') => leave_modal(state),
+        KeyCode::Enter => return KeybindHelpKeyOutcome::ExecuteSelection,
+        _ if keybind_help_text_char(key) == Some('?') => leave_modal(state),
         _ => {}
     }
+    KeybindHelpKeyOutcome::Handled
+}
+
+#[cfg(test)]
+fn handle_keybind_help_key(state: &mut AppState, key: TerminalKey) {
+    let _ = handle_keybind_help_key_state(state, key);
+}
+
+fn navigate_action_for_keybind_help_command(
+    command: KeybindHelpCommand,
+) -> Option<super::navigate::NavigateAction> {
+    use super::navigate::NavigateAction;
+    use KeybindHelpCommand::*;
+
+    Some(match command {
+        Help => return None,
+        Settings => NavigateAction::Settings,
+        Detach => NavigateAction::Detach,
+        ReloadConfig => NavigateAction::ReloadConfig,
+        OpenNotificationTarget => NavigateAction::OpenNotificationTarget,
+        WorkspacePicker => NavigateAction::WorkspacePicker,
+        OpenNavigator => NavigateAction::OpenNavigator,
+        NewWorkspace => NavigateAction::NewWorkspace,
+        NewWorktree => NavigateAction::NewWorktree,
+        OpenWorktree => NavigateAction::OpenWorktree,
+        RemoveWorktree => NavigateAction::RemoveWorktree,
+        RenameWorkspace => NavigateAction::RenameWorkspace,
+        CloseWorkspace => NavigateAction::CloseWorkspace,
+        PreviousWorkspace => NavigateAction::PreviousWorkspace,
+        NextWorkspace => NavigateAction::NextWorkspace,
+        PreviousAgent => NavigateAction::PreviousAgent,
+        NextAgent => NavigateAction::NextAgent,
+        NewTab => NavigateAction::NewTab,
+        RenameTab => NavigateAction::RenameTab,
+        PreviousTab => NavigateAction::PreviousTab,
+        NextTab => NavigateAction::NextTab,
+        CloseTab => NavigateAction::CloseTab,
+        SplitVertical => NavigateAction::SplitVertical,
+        SplitHorizontal => NavigateAction::SplitHorizontal,
+        ClosePane => NavigateAction::ClosePane,
+        RenamePane => NavigateAction::RenamePane,
+        EditScrollback => NavigateAction::EditScrollback,
+        CopyMode => NavigateAction::CopyMode,
+        Zoom => NavigateAction::Zoom,
+        EnterResizeMode => NavigateAction::EnterResizeMode,
+        ToggleSidebar => NavigateAction::ToggleSidebar,
+        FocusPaneLeft => NavigateAction::FocusPaneLeft,
+        FocusPaneDown => NavigateAction::FocusPaneDown,
+        FocusPaneUp => NavigateAction::FocusPaneUp,
+        FocusPaneRight => NavigateAction::FocusPaneRight,
+        CyclePaneNext => NavigateAction::CyclePaneNext,
+        CyclePanePrevious => NavigateAction::CyclePanePrevious,
+        LastPane => NavigateAction::LastPane,
+        CustomCommand(_) => return None,
+    })
 }
 
 fn keybind_help_text_char(key: TerminalKey) -> Option<char> {
