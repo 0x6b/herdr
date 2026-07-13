@@ -40,6 +40,11 @@ Panes:
 | Swap panes | `prefix+shift+h/j/k/l` |
 | Resize mode | `prefix+r` |
 | Copy mode | `prefix+[` |
+| Copy last command and output | `prefix+y` |
+
+`prefix+y` copies the prompt, command line, and output. Press it repeatedly to cycle through older command blocks. The pane's shell must emit OSC 133 semantic prompt markers; without shell integration, the action does nothing.
+
+Ghostty with Fish works automatically: Ghostty prepends its shell integration directory to `XDG_DATA_DIRS`, Herdr passes that environment to the pane, and Fish loads the integration from `vendor_conf.d` when it starts. For other shell and terminal combinations, make sure the shell launched inside the Herdr pane emits OSC 133 markers. In particular, Ghostty's automatic Bash and Zsh injection applies to the shell Ghostty launches directly; follow [Ghostty's manual shell integration setup](https://ghostty.org/docs/features/shell-integration#manual-shell-integration-setup) when the integration is not available inside a Herdr pane.
 
 Tabs:
 

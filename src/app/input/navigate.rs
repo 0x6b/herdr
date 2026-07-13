@@ -185,6 +185,9 @@ impl App {
         action: NavigateAction,
         context: ActionContext,
     ) {
+        if action != NavigateAction::CopyLastCommandOutput {
+            self.state.reset_command_output_cycle();
+        }
         let previous_mode = self.state.mode;
         match action {
             NavigateAction::NewWorkspace => {
@@ -390,6 +393,18 @@ impl App {
             }
             NavigateAction::EditScrollback => {}
             NavigateAction::CopyMode => self.state.enter_copy_mode(&self.terminal_runtimes),
+            NavigateAction::CopyLastCommandOutput => {
+                self.state.copy_last_command_output(&self.terminal_runtimes);
+                if let Some(content) = self.state.request_clipboard_write.take() {
+                    if self
+                        .event_tx
+                        .try_send(crate::events::AppEvent::ClipboardWrite { content })
+                        .is_err()
+                    {
+                        tracing::warn!("failed to queue command output clipboard write");
+                    }
+                }
+            }
             NavigateAction::Zoom => {
                 self.zoom_focused_pane_via_api();
                 leave_navigate_mode(&mut self.state);
@@ -826,6 +841,7 @@ impl App {
             return false;
         }
 
+        self.state.reset_command_output_cycle();
         self.state.mode = Mode::Terminal;
         true
     }
@@ -1415,6 +1431,7 @@ pub(crate) enum NavigateAction {
     ClosePane,
     EditScrollback,
     CopyMode,
+    CopyLastCommandOutput,
     Zoom,
     EnterResizeMode,
     ResizePaneLeft,
@@ -1551,6 +1568,10 @@ fn non_indexed_action_for_key(
         (&kb.rename_pane, NavigateAction::RenamePane),
         (&kb.edit_scrollback, NavigateAction::EditScrollback),
         (&kb.copy_mode, NavigateAction::CopyMode),
+        (
+            &kb.copy_last_command_output,
+            NavigateAction::CopyLastCommandOutput,
+        ),
         (&kb.focus_pane_left, NavigateAction::FocusPaneLeft),
         (&kb.focus_pane_down, NavigateAction::FocusPaneDown),
         (&kb.focus_pane_up, NavigateAction::FocusPaneUp),
@@ -1644,6 +1665,9 @@ pub(super) fn execute_navigate_action_in_context(
     action: NavigateAction,
     context: ActionContext,
 ) {
+    if action != NavigateAction::CopyLastCommandOutput {
+        state.reset_command_output_cycle();
+    }
     let previous_mode = state.mode;
     match action {
         NavigateAction::NewWorkspace => {
@@ -1805,6 +1829,7 @@ pub(super) fn execute_navigate_action_in_context(
         }
         NavigateAction::EditScrollback => {}
         NavigateAction::CopyMode => state.enter_copy_mode(terminal_runtimes),
+        NavigateAction::CopyLastCommandOutput => state.copy_last_command_output(terminal_runtimes),
         NavigateAction::Zoom => {
             state.toggle_zoom();
             leave_navigate_mode(state);
@@ -3714,6 +3739,61 @@ navigate_pane_down = "ctrl+j"
         );
 
         let _ = std::fs::remove_file(output_path);
+    }
+
+    #[tokio::test]
+    async fn copy_last_command_output_key_includes_prompts_and_cycles() {
+        let (_api_tx, api_rx) = tokio::sync::mpsc::unbounded_channel();
+        let mut app = App::new(
+            &Config::default(),
+            true,
+            None,
+            api_rx,
+            crate::api::EventHub::default(),
+        );
+        let workspace = Workspace::test_new("test");
+        let root_pane = workspace.tabs[0].root_pane;
+        let terminal_id = workspace.terminal_id(root_pane).cloned().unwrap();
+        let runtime = crate::terminal::TerminalRuntime::test_with_screen_bytes(
+            30,
+            10,
+            b"\x1b]133;A\x07$ \x1b]133;B\x07first\r\n\x1b]133;C\x07one\r\n\x1b]133;D;0\x07\
+              \x1b]133;A\x07$ \x1b]133;B\x07second\r\n\x1b]133;C\x07two\r\n\x1b]133;D;0\x07\
+              \x1b]133;A\x07$ \x1b]133;B\x07\r\n\x1b]133;C\x07\x1b]133;D;0\x07\
+              \x1b]133;A\x07$ \x1b]133;B\x07",
+        );
+        app.terminal_runtimes.insert(terminal_id, runtime);
+        app.state.workspaces = vec![workspace];
+        app.state.active = Some(0);
+        app.state.selected = 0;
+        app.state.mode = Mode::Terminal;
+
+        for expected in [
+            b"$\n".as_slice(),
+            b"$ second\ntwo\n".as_slice(),
+            b"$ first\none\n".as_slice(),
+            b"$\n".as_slice(),
+        ] {
+            app.handle_key(TerminalKey::new(
+                app.state.prefix_code,
+                app.state.prefix_mods,
+            ))
+            .await;
+            app.handle_key(TerminalKey::new(KeyCode::Char('y'), KeyModifiers::empty()))
+                .await;
+
+            let event = app.event_rx.try_recv().expect("clipboard write event");
+            match event {
+                crate::events::AppEvent::ClipboardWrite { content } => {
+                    assert_eq!(content, expected)
+                }
+                other => panic!("unexpected event: {other:?}"),
+            }
+        }
+
+        for (_terminal_id, runtime) in app.terminal_runtimes.drain() {
+            runtime.shutdown();
+        }
     }
 
     #[test]

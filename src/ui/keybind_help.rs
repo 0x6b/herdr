@@ -46,6 +46,7 @@ pub(crate) enum KeybindHelpCommand {
     RenamePane,
     EditScrollback,
     CopyMode,
+    CopyLastCommandOutput,
     Zoom,
     EnterResizeMode,
     ToggleSidebar,
@@ -336,6 +337,11 @@ pub(super) fn keybind_help_groups(app: &AppState) -> Vec<HelpGroup> {
             keybind_label(&kb.copy_mode),
             "copy mode",
             KeybindHelpCommand::CopyMode,
+        ),
+        command_entry(
+            keybind_label(&kb.copy_last_command_output),
+            "copy last command and output",
+            KeybindHelpCommand::CopyLastCommandOutput,
         ),
         command_entry(
             keybind_label(&kb.zoom),

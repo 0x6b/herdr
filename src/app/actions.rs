@@ -2139,6 +2139,69 @@ impl AppState {
 // ---------------------------------------------------------------------------
 
 impl AppState {
+    pub(crate) fn reset_command_output_cycle(&mut self) {
+        self.command_output_cycle = None;
+    }
+
+    pub(crate) fn copy_last_command_output(
+        &mut self,
+        terminal_runtimes: &crate::terminal::TerminalRuntimeRegistry,
+    ) {
+        let Some(ws_idx) = self.active else {
+            self.reset_command_output_cycle();
+            return;
+        };
+        let Some(workspace) = self.workspaces.get(ws_idx) else {
+            self.reset_command_output_cycle();
+            return;
+        };
+        let Some(pane_id) = workspace.focused_pane_id() else {
+            self.reset_command_output_cycle();
+            return;
+        };
+        let Some(terminal_id) = workspace.terminal_id(pane_id).cloned() else {
+            self.reset_command_output_cycle();
+            return;
+        };
+        let Some(runtime) = terminal_runtimes.get(&terminal_id) else {
+            self.reset_command_output_cycle();
+            return;
+        };
+
+        let mut index = self
+            .command_output_cycle
+            .as_ref()
+            .filter(|cycle| cycle.terminal_id == terminal_id)
+            .map_or(0, |cycle| cycle.next_index);
+        let mut wrapped = false;
+        loop {
+            match runtime.command_output(index) {
+                crate::ghostty::CommandOutput::Text(text) => {
+                    let mut content = text.into_bytes();
+                    content.push(b'\n');
+                    self.request_clipboard_write = Some(content);
+                    self.command_output_cycle = Some(crate::app::state::CommandOutputCycle {
+                        terminal_id,
+                        next_index: index.saturating_add(1),
+                    });
+                    info!(index, "copied command and output to clipboard");
+                    return;
+                }
+                crate::ghostty::CommandOutput::Empty => {
+                    index = index.saturating_add(1);
+                }
+                crate::ghostty::CommandOutput::NoCommand if !wrapped => {
+                    index = 0;
+                    wrapped = true;
+                }
+                crate::ghostty::CommandOutput::NoCommand => {
+                    self.reset_command_output_cycle();
+                    return;
+                }
+            }
+        }
+    }
+
     pub fn clear_selection(&mut self) {
         self.selection = None;
         self.selection_autoscroll = None;

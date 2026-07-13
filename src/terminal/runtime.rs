@@ -408,6 +408,10 @@ impl TerminalRuntime {
         self.0.recent_unwrapped_ansi_snapshot(lines)
     }
 
+    pub(crate) fn command_output(&self, n: usize) -> crate::ghostty::CommandOutput {
+        self.0.command_output(n)
+    }
+
     pub fn snapshot_history(&self) -> Option<String> {
         self.0.snapshot_history()
     }

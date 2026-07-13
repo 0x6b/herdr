@@ -470,6 +470,12 @@
           "description": "Enter keyboard copy mode for the focused pane."
         },
         {
+          "key": "keys.copy_last_command_output",
+          "type": "keybinding",
+          "default": "\"prefix+y\"",
+          "description": "Copy the focused pane's last command, including its prompt and output, and cycle through older command blocks when OSC 133 shell integration is available."
+        },
+        {
           "key": "keys.focus_pane_left",
           "type": "keybinding",
           "default": "\"prefix+h\"",

@@ -2785,6 +2785,10 @@ impl PaneRuntime {
         self.terminal.recent_unwrapped_ansi_snapshot(lines)
     }
 
+    pub(crate) fn command_output(&self, n: usize) -> crate::ghostty::CommandOutput {
+        self.terminal.command_output(n)
+    }
+
     pub fn snapshot_history(&self) -> Option<String> {
         let ansi = self.recent_unwrapped_ansi(usize::MAX);
         (!ansi.trim().is_empty()).then_some(ansi)

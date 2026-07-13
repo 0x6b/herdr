@@ -227,6 +227,7 @@ impl App {
             return None;
         }
 
+        self.state.reset_command_output_cycle();
         Some(PreparedPaneInput {
             ws_idx,
             pane_id,

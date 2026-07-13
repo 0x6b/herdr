@@ -462,6 +462,7 @@ fn navigate_action_for_keybind_help_command(
         RenamePane => NavigateAction::RenamePane,
         EditScrollback => NavigateAction::EditScrollback,
         CopyMode => NavigateAction::CopyMode,
+        CopyLastCommandOutput => NavigateAction::CopyLastCommandOutput,
         Zoom => NavigateAction::Zoom,
         EnterResizeMode => NavigateAction::EnterResizeMode,
         ToggleSidebar => NavigateAction::ToggleSidebar,

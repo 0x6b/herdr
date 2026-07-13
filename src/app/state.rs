@@ -1364,6 +1364,12 @@ pub(crate) struct PaneFocusTarget {
     pub pane_id: PaneId,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct CommandOutputCycle {
+    pub terminal_id: crate::terminal::TerminalId,
+    pub next_index: usize,
+}
+
 /// All application state — pure data, no channels or async runtime.
 /// Testable without PTYs or a tokio runtime.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1406,6 +1412,8 @@ pub struct AppState {
     /// Set when UI interaction requested a clipboard write that must be
     /// handled by the outer App/event loop instead of directly from AppState.
     pub request_clipboard_write: Option<Vec<u8>>,
+    /// Repeated copy-last-output actions cycle through older command blocks.
+    pub(crate) command_output_cycle: Option<CommandOutputCycle>,
     pub creating_new_tab: bool,
     pub requested_new_tab_name: Option<String>,
     pub pending_workspace_create_cwd: Option<std::path::PathBuf>,
@@ -1790,6 +1798,7 @@ impl AppState {
             request_reload_config: false,
             request_client_config_reload: false,
             request_clipboard_write: None,
+            command_output_cycle: None,
             creating_new_tab: false,
             requested_new_tab_name: None,
             pending_workspace_create_cwd: None,
