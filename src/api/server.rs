@@ -431,6 +431,7 @@ fn api_method_name(method: &Method) -> &'static str {
         Method::PaneProcessInfo(_) => "pane.process_info",
         Method::LayoutExport(_) => "layout.export",
         Method::LayoutApply(_) => "layout.apply",
+        Method::LayoutEqualize(_) => "layout.equalize",
         Method::LayoutSetSplitRatio(_) => "layout.set_split_ratio",
         Method::PaneNeighbor(_) => "pane.neighbor",
         Method::PaneEdges(_) => "pane.edges",

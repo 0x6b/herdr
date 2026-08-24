@@ -572,6 +572,12 @@
           "description": "Enter resize mode."
         },
         {
+          "key": "keys.equalize_splits",
+          "type": "keybinding",
+          "default": "unset",
+          "description": "Equalize split sizes in the active tab. Unset by default."
+        },
+        {
           "key": "keys.resize_pane_left",
           "type": "keybinding",
           "default": "unset",

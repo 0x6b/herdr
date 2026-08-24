@@ -2169,6 +2169,23 @@
           ],
           "type": "object"
         },
+        "LayoutEqualizeParams": {
+          "properties": {
+            "pane_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "tab_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "type": "object"
+        },
         "LayoutExportParams": {
           "properties": {
             "pane_id": {
@@ -5219,6 +5236,22 @@
             },
             "params": {
               "$ref": "#/schemas/request/$defs/LayoutApplyParams"
+            }
+          },
+          "required": [
+            "method",
+            "params"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "method": {
+              "const": "layout.equalize",
+              "type": "string"
+            },
+            "params": {
+              "$ref": "#/schemas/request/$defs/LayoutEqualizeParams"
             }
           },
           "required": [
@@ -9149,6 +9182,22 @@
                 },
                 "type": {
                   "const": "layout_apply",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "type",
+                "layout"
+              ],
+              "type": "object"
+            },
+            {
+              "properties": {
+                "layout": {
+                  "$ref": "#/schemas/success_response/$defs/LayoutDescription"
+                },
+                "type": {
+                  "const": "layout_equalized",
                   "type": "string"
                 }
               },

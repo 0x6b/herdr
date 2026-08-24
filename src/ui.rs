@@ -1478,6 +1478,9 @@ mod tests {
         assert!(panes
             .iter()
             .any(|entry| entry.key == "prefix+l" && entry.label.as_ref() == "focus pane right"));
+        assert!(panes.iter().any(|entry| {
+            entry.key == "unset" && entry.label.as_ref() == "equalize split sizes"
+        }));
     }
 
     #[test]
@@ -1632,5 +1635,16 @@ switch_workspace = "ctrl+1..9"
             .join("");
         assert!(rendered_help.contains("reload config"));
         assert!(!rendered_help.contains("settings"));
+    }
+
+    #[test]
+    fn keybind_help_search_finds_equalize_split_sizes_command() {
+        let mut app = crate::app::state::AppState::test_new();
+        app.keybind_help.query = "equal splits".to_string();
+
+        assert_eq!(
+            keybind_help_selected_command(&app),
+            Some(KeybindHelpCommand::EqualizeSplits)
+        );
     }
 }

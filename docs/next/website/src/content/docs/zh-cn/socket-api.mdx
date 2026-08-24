@@ -101,7 +101,7 @@ herdr pane read w1:p2 --source recent --lines 50
 | 标签页 | `tab.create`、`tab.list`、`tab.get`、`tab.focus`、`tab.rename`、`tab.move`、`tab.close` |
 | 窗格 | `pane.split`、`pane.swap`、`pane.move`、`pane.zoom`、`pane.layout`、`pane.process_info`、`pane.neighbor`、`pane.edges`、`pane.focus_direction`、`pane.resize`、`pane.list`、`pane.current`、`pane.get`、`pane.rename`、`pane.send_text`、`pane.send_keys`、`pane.send_input`、`pane.read`、`pane.graphics.info`、`pane.graphics.set`、`pane.graphics.clear`、`pane.graphics.stream`、`pane.report_agent`、`pane.report_agent_session`、`pane.report_metadata`、`pane.clear_agent_authority`、`pane.release_agent`、`pane.close`、`pane.wait_for_output` |
 | 弹窗 | `popup.close` |
-| 布局 | `layout.export`、`layout.apply`、`layout.set_split_ratio` |
+| 布局 | `layout.export`、`layout.apply`、`layout.equalize`、`layout.set_split_ratio` |
 | 智能体 | `agent.list`、`agent.get`、`agent.read`、`agent.explain`、`agent.send_keys`、`agent.prompt`、`agent.wait`、`agent.rename`、`agent.focus`、`agent.start` |
 | 事件 | `events.subscribe`、`events.wait` |
 | 集成 | `integration.install`、`integration.uninstall` |
@@ -203,6 +203,12 @@ CLI 的 `herdr api snapshot` 会把当前 `session.snapshot` 响应输出为 JSO
     }
   }
 }
+```
+
+`layout.equalize` 会在水平或垂直方向连续分割的窗格之间均分宽度或高度,但不会改变水平分割与垂直分割混合后的结构。同时省略两个 id 时以活动标签页为目标;传入 `tab_id` 时以该标签页为目标;传入 `pane_id` 时以包含该窗格的标签页为目标。响应为 `type: "layout_equalized"`,并包含更新后的可移植 `layout`。
+
+```json
+{"id":"req_equalize","method":"layout.equalize","params":{"tab_id":"w1:t1"}}
 ```
 
 `layout.set_split_ratio` 更新标签页布局中已有分割的比例。响应是 `type: "layout_split_ratio_set"`,并包含更新后的可移植 `layout`。

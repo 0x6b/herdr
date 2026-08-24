@@ -101,7 +101,7 @@ herdr pane read w1:p2 --source recent --lines 50
 | タブ | `tab.create`、`tab.list`、`tab.get`、`tab.focus`、`tab.rename`、`tab.move`、`tab.close` |
 | ペイン | `pane.split`、`pane.swap`、`pane.move`、`pane.zoom`、`pane.layout`、`pane.process_info`、`pane.neighbor`、`pane.edges`、`pane.focus_direction`、`pane.resize`、`pane.list`、`pane.current`、`pane.get`、`pane.rename`、`pane.send_text`、`pane.send_keys`、`pane.send_input`、`pane.read`、`pane.graphics.info`、`pane.graphics.set`、`pane.graphics.clear`、`pane.graphics.stream`、`pane.report_agent`、`pane.report_agent_session`、`pane.report_metadata`、`pane.clear_agent_authority`、`pane.release_agent`、`pane.close`、`pane.wait_for_output` |
 | ポップアップ | `popup.close` |
-| レイアウト | `layout.export`、`layout.apply`、`layout.set_split_ratio` |
+| レイアウト | `layout.export`、`layout.apply`、`layout.equalize`、`layout.set_split_ratio` |
 | エージェント | `agent.list`、`agent.get`、`agent.read`、`agent.explain`、`agent.send_keys`、`agent.prompt`、`agent.wait`、`agent.rename`、`agent.focus`、`agent.start` |
 | イベント | `events.subscribe`、`events.wait` |
 | インテグレーション | `integration.install`、`integration.uninstall` |
@@ -203,6 +203,12 @@ CLI の `herdr api snapshot` は、クライアントやエージェントが簡
     }
   }
 }
+```
+
+`layout.equalize` は、同じ方向に連なる分割へ幅または高さを均等に割り当てます。横分割と縦分割を組み合わせた構造は変えません。両方の id を省略するとアクティブなタブを、`tab_id` を渡すとそのタブを、`pane_id` を渡すとそのペインを含むタブを対象にします。レスポンスには、更新後の移植可能な `layout` と `type: "layout_equalized"` が含まれます。
+
+```json
+{"id":"req_equalize","method":"layout.equalize","params":{"tab_id":"w1:t1"}}
 ```
 
 `layout.set_split_ratio` は、タブレイアウト内の既存の分割比率を更新します。レスポンスは、更新済みの移植可能な `layout` を含む `type: "layout_split_ratio_set"` です。

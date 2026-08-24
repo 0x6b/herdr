@@ -1038,6 +1038,28 @@ fn layout_export_apply_round_trip() {
     assert_eq!(restored, response);
 
     let response = SuccessResponse {
+        id: "layout_equalize".into(),
+        result: ResponseResult::LayoutEqualized {
+            layout: LayoutDescription {
+                workspace_id: "w1".into(),
+                tab_id: "w1:1".into(),
+                zoomed: false,
+                focused_pane_id: "w1-1".into(),
+                root: LayoutNode::Pane {
+                    pane: LayoutPane {
+                        pane_id: Some("w1-1".into()),
+                        ..Default::default()
+                    },
+                },
+            },
+        },
+    };
+    let json = serde_json::to_string(&response).unwrap();
+    assert!(json.contains("\"type\":\"layout_equalized\""));
+    let restored: SuccessResponse = serde_json::from_str(&json).unwrap();
+    assert_eq!(restored, response);
+
+    let response = SuccessResponse {
         id: "layout_ratio".into(),
         result: ResponseResult::LayoutSplitRatioSet {
             layout: LayoutDescription {
@@ -1108,6 +1130,18 @@ fn authority_mutation_requests_round_trip() {
     assert_eq!(json["method"], "pane.focus");
     let restored: Request = serde_json::from_value(json).unwrap();
     assert_eq!(restored, pane_focus);
+
+    let equalize = Request {
+        id: "equalize_layout".into(),
+        method: Method::LayoutEqualize(LayoutEqualizeParams {
+            tab_id: Some("w1:1".into()),
+            pane_id: None,
+        }),
+    };
+    let json = serde_json::to_value(&equalize).unwrap();
+    assert_eq!(json["method"], "layout.equalize");
+    let restored: Request = serde_json::from_value(json).unwrap();
+    assert_eq!(restored, equalize);
 
     let split_ratio = Request {
         id: "set_ratio".into(),

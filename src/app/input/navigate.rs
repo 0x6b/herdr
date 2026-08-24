@@ -410,6 +410,10 @@ impl App {
                 leave_navigate_mode(&mut self.state);
             }
             NavigateAction::EnterResizeMode => self.state.mode = Mode::Resize,
+            NavigateAction::EqualizeSplits => {
+                self.equalize_splits_via_api();
+                leave_navigate_mode(&mut self.state);
+            }
             NavigateAction::ResizePaneLeft => {
                 self.resize_pane_direction_via_api(NavDirection::Left);
                 leave_navigate_mode(&mut self.state);
@@ -667,6 +671,16 @@ impl App {
                 pane_id: None,
                 path,
                 ratio,
+            },
+        );
+    }
+
+    pub(crate) fn equalize_splits_via_api(&mut self) {
+        self.runtime_layout_equalize(
+            "tui.layout.equalize",
+            crate::api::schema::LayoutEqualizeParams {
+                tab_id: None,
+                pane_id: None,
             },
         );
     }
@@ -1434,6 +1448,7 @@ pub(crate) enum NavigateAction {
     CopyLastCommandOutput,
     Zoom,
     EnterResizeMode,
+    EqualizeSplits,
     ResizePaneLeft,
     ResizePaneDown,
     ResizePaneUp,
@@ -1588,6 +1603,7 @@ fn non_indexed_action_for_key(
         (&kb.close_pane, NavigateAction::ClosePane),
         (&kb.zoom, NavigateAction::Zoom),
         (&kb.resize_mode, NavigateAction::EnterResizeMode),
+        (&kb.equalize_splits, NavigateAction::EqualizeSplits),
         (&kb.resize_pane_left, NavigateAction::ResizePaneLeft),
         (&kb.resize_pane_down, NavigateAction::ResizePaneDown),
         (&kb.resize_pane_up, NavigateAction::ResizePaneUp),
@@ -1835,6 +1851,17 @@ pub(super) fn execute_navigate_action_in_context(
             leave_navigate_mode(state);
         }
         NavigateAction::EnterResizeMode => state.mode = Mode::Resize,
+        NavigateAction::EqualizeSplits => {
+            let changed = state
+                .active
+                .and_then(|ws_idx| state.workspaces.get_mut(ws_idx))
+                .and_then(|ws| ws.active_tab_mut())
+                .is_some_and(|tab| tab.layout.equalize_splits());
+            if changed {
+                state.mark_session_dirty();
+            }
+            leave_navigate_mode(state);
+        }
         NavigateAction::ResizePaneLeft => {
             state.resize_pane(NavDirection::Left);
             leave_navigate_mode(state);
@@ -2748,6 +2775,27 @@ resize_pane_left = "prefix+shift+left"
         );
 
         assert_eq!(action, Some(NavigateAction::ResizePaneLeft));
+    }
+
+    #[test]
+    fn prefix_equalize_splits_binding_maps_to_navigation_action() {
+        let config: Config = toml::from_str(
+            r#"
+[keys]
+equalize_splits = "prefix+="
+"#,
+        )
+        .unwrap();
+        let mut state = state_with_workspaces(&["test"]);
+        state.keybinds = config.keybinds();
+
+        let action = action_for_key(
+            &state,
+            TerminalKey::new(KeyCode::Char('='), KeyModifiers::empty()),
+            BindingDispatch::Prefix,
+        );
+
+        assert_eq!(action, Some(NavigateAction::EqualizeSplits));
     }
 
     #[test]

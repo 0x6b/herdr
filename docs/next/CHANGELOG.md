@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Added
+- The searchable command panel can now equalize split sizes in the active tab. The action is also available through the optional `keys.equalize_splits` binding and the `layout.equalize` socket method.
+
 ### Fixed
 - Claude Code panes now use visible turn, background shell, and background agent activity as working-state fallbacks when OSC titles are unavailable or disabled. (#1630, #2241)
 - Tab bar status commands now remove ESC-prefixed terminal control sequences instead of displaying their sequence bodies as text. (#3001)

@@ -465,6 +465,7 @@ fn navigate_action_for_keybind_help_command(
         CopyLastCommandOutput => NavigateAction::CopyLastCommandOutput,
         Zoom => NavigateAction::Zoom,
         EnterResizeMode => NavigateAction::EnterResizeMode,
+        EqualizeSplits => NavigateAction::EqualizeSplits,
         ToggleSidebar => NavigateAction::ToggleSidebar,
         FocusPaneLeft => NavigateAction::FocusPaneLeft,
         FocusPaneDown => NavigateAction::FocusPaneDown,
@@ -1955,6 +1956,27 @@ mod tests {
             TerminalKey::new(KeyCode::Esc, KeyModifiers::empty()),
         );
         assert_eq!(state.mode, Mode::Terminal);
+    }
+
+    #[test]
+    fn keybind_help_equalize_command_balances_active_tab_splits() {
+        let mut app = app_with_test_workspaces(&["test"]);
+        app.state.workspaces[0].test_split(ratatui::layout::Direction::Horizontal);
+        app.state.workspaces[0].test_split(ratatui::layout::Direction::Horizontal);
+        let layout = &mut app.state.workspaces[0].tabs[0].layout;
+        layout.set_ratio_at(&[], 0.7);
+        layout.set_ratio_at(&[true], 0.8);
+        open_keybind_help(&mut app.state);
+        app.state.keybind_help.query = "equal splits".into();
+
+        app.execute_selected_keybind_help_command();
+
+        let splits = app.state.workspaces[0].tabs[0]
+            .layout
+            .splits(Rect::new(0, 0, 120, 40));
+        assert!((splits[0].ratio - (1.0 / 3.0)).abs() < f32::EPSILON);
+        assert!((splits[1].ratio - 0.5).abs() < f32::EPSILON);
+        assert_eq!(app.state.mode, Mode::Terminal);
     }
 
     #[test]

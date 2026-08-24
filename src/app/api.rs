@@ -1090,6 +1090,9 @@ impl App {
             }
             Method::LayoutExport(params) => return self.handle_layout_export(request.id, params),
             Method::LayoutApply(params) => return self.handle_layout_apply(request.id, params),
+            Method::LayoutEqualize(params) => {
+                return self.handle_layout_equalize(request.id, params);
+            }
             Method::LayoutSetSplitRatio(params) => {
                 return self.handle_layout_set_split_ratio(request.id, params);
             }

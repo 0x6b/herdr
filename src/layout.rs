@@ -276,6 +276,18 @@ impl TileLayout {
         set_ratio_at(&mut self.root, path, ratio.clamp(0.1, 0.9))
     }
 
+    /// Equalize every run of splits that shares the same direction.
+    ///
+    /// A perpendicular child split occupies one unit in its parent's axis,
+    /// while same-direction descendants contribute one unit per pane. This
+    /// keeps mixed layouts intact and gives panes in a horizontal or vertical
+    /// run an even share of the available width or height.
+    pub fn equalize_splits(&mut self) -> bool {
+        let before = split_ratios(&self.root);
+        equalize_splits(&mut self.root);
+        split_ratios(&self.root) != before
+    }
+
     /// Adjust the nearest split in the given direction for the focused pane.
     /// `delta` is positive to grow, negative to shrink.
     pub fn resize_focused(&mut self, nav: NavDirection, delta: f32, area: Rect) {
@@ -571,6 +583,40 @@ fn split_ratios(node: &Node) -> Vec<(Vec<bool>, f32)> {
     out
 }
 
+fn equalize_splits(node: &mut Node) {
+    let Node::Split {
+        direction,
+        ratio,
+        first,
+        second,
+    } = node
+    else {
+        return;
+    };
+
+    let first_weight = split_axis_weight(first, *direction);
+    let second_weight = split_axis_weight(second, *direction);
+    *ratio = valid_split_ratio(first_weight as f32 / (first_weight + second_weight) as f32);
+
+    equalize_splits(first);
+    equalize_splits(second);
+}
+
+fn split_axis_weight(node: &Node, direction: Direction) -> usize {
+    match node {
+        Node::Pane(_) => 1,
+        Node::Split {
+            direction: child_direction,
+            first,
+            second,
+            ..
+        } if *child_direction == direction => {
+            split_axis_weight(first, direction) + split_axis_weight(second, direction)
+        }
+        Node::Split { .. } => 1,
+    }
+}
+
 fn swap_pane_ids(node: &mut Node, first: PaneId, second: PaneId) {
     match node {
         Node::Pane(id) if *id == first => *id = second,
@@ -838,6 +884,70 @@ mod tests {
         assert_eq!(splits.len(), 1);
         assert_eq!(splits[0].0, Direction::Horizontal);
         assert!((splits[0].1 - 0.333).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn equalize_splits_gives_same_direction_panes_even_space() {
+        let mut layout = TileLayout::from_saved(
+            Node::Split {
+                direction: Direction::Horizontal,
+                ratio: 0.8,
+                first: Box::new(Node::Pane(pane(1))),
+                second: Box::new(Node::Split {
+                    direction: Direction::Horizontal,
+                    ratio: 0.7,
+                    first: Box::new(Node::Pane(pane(2))),
+                    second: Box::new(Node::Pane(pane(3))),
+                }),
+            },
+            pane(2),
+        );
+
+        assert!(layout.equalize_splits());
+
+        let pane_widths: Vec<u16> = layout
+            .panes(Rect::new(0, 0, 120, 40))
+            .into_iter()
+            .map(|pane| pane.rect.width)
+            .collect();
+        assert_eq!(pane_widths, vec![40, 40, 40]);
+        assert_eq!(layout.focused(), pane(2));
+        assert!(!layout.equalize_splits());
+    }
+
+    #[test]
+    fn equalize_splits_preserves_mixed_direction_shape() {
+        let mut layout = TileLayout::from_saved(
+            Node::Split {
+                direction: Direction::Horizontal,
+                ratio: 0.2,
+                first: Box::new(Node::Pane(pane(1))),
+                second: Box::new(Node::Split {
+                    direction: Direction::Vertical,
+                    ratio: 0.8,
+                    first: Box::new(Node::Pane(pane(2))),
+                    second: Box::new(Node::Pane(pane(3))),
+                }),
+            },
+            pane(1),
+        );
+
+        assert!(layout.equalize_splits());
+
+        assert_eq!(pane_rect(&layout, pane(1)), Rect::new(0, 0, 50, 40));
+        assert_eq!(pane_rect(&layout, pane(2)), Rect::new(50, 0, 50, 20));
+        assert_eq!(pane_rect(&layout, pane(3)), Rect::new(50, 20, 50, 20));
+        assert_eq!(
+            split_snapshot(&layout),
+            vec![(Direction::Horizontal, 0.5), (Direction::Vertical, 0.5)]
+        );
+    }
+
+    #[test]
+    fn equalize_splits_is_a_noop_without_splits() {
+        let (mut layout, _) = TileLayout::new();
+
+        assert!(!layout.equalize_splits());
     }
 
     #[test]
