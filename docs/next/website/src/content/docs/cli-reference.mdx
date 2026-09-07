@@ -60,7 +60,7 @@ herdr machine remove <profile-id>
 
 Changes apply automatically to open local Herdr clients, normally within a second. Added or enabled machines connect in the background; renaming does not reconnect. Removing or disabling disconnects only that machine and leaves its remote sessions running. Removing the machine you are viewing returns to Local, or shows Local as unavailable until it reconnects. Each profile stores an opaque ID, label, SSH target, explicit remote session, and enabled state in client state. Herdr does not store passwords, private keys, or other SSH credentials.
 
-Automatic connections and reconnects are non-interactive. If a host key, password, key passphrase, MFA step, install, update, or restart needs approval, the machine shows Attention instead of opening a hidden prompt. Run the standalone command printed by Herdr, such as `herdr --remote workbox --session agents --handoff`, to complete that setup in the foreground, then restart the client.
+Automatic connections and reconnects are non-interactive. If a host key, password, key passphrase, MFA step, install, update, or restart needs approval, the machine shows Attention instead of opening a hidden prompt. Run the standalone command printed by Herdr, such as `herdr --remote workbox --session agents`, to complete that setup in the foreground, then restart the client.
 
 ## Shell completions
 
