@@ -1874,13 +1874,9 @@ mod tests {
         let original_pane_borders = app.state.pane_borders;
         // Pair the bad bounds with another `[ui]` field change to confirm the
         // entire section is treated as invalid (not just the bounds).
-        let target_pane_borders = !original_pane_borders;
         std::fs::write(
             &path,
-            format!(
-                "[ui]\nsidebar_min_width = 50\nsidebar_max_width = 30\npane_borders = {}\n",
-                target_pane_borders
-            ),
+            "[ui]\nsidebar_min_width = 50\nsidebar_max_width = 30\npane_borders = \"always\"\n",
         )
         .unwrap();
 
@@ -1945,10 +1941,10 @@ mod tests {
         std::env::set_var(crate::config::CONFIG_PATH_ENV_VAR, &path);
 
         let mut app = test_app();
-        let target_pane_borders = !app.state.pane_borders;
+        let target_pane_borders = crate::config::PaneBordersConfig::Always;
         std::fs::write(
             &path,
-            format!("[ui]\npane_borders = {target_pane_borders}\nmouse_captur = false\n"),
+            "[ui]\npane_borders = \"always\"\nmouse_captur = false\n",
         )
         .unwrap();
 
