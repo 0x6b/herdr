@@ -533,6 +533,10 @@ impl PaneTerminal {
         self.ghostty.recent_unwrapped_ansi_snapshot(lines)
     }
 
+    pub(crate) fn command_output(&self, n: usize) -> crate::ghostty::CommandOutput {
+        self.ghostty.command_output(n)
+    }
+
     pub fn extract_selection(&self, selection: &crate::selection::Selection) -> Option<String> {
         self.ghostty.extract_selection(selection)
     }
@@ -2288,6 +2292,15 @@ impl GhosttyPaneTerminal {
             .viewport_link_target(col, u32::from(row))
             .ok()
             .flatten()
+    }
+
+    pub(crate) fn command_output(&self, n: usize) -> crate::ghostty::CommandOutput {
+        let Ok(core) = self.core.lock() else {
+            return crate::ghostty::CommandOutput::NoCommand;
+        };
+        core.terminal
+            .command_output(n)
+            .unwrap_or(crate::ghostty::CommandOutput::NoCommand)
     }
 
     pub fn extract_selection(&self, selection: &crate::selection::Selection) -> Option<String> {

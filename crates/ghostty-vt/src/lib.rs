@@ -25,6 +25,8 @@ use std::slice;
 use std::sync::{Arc, Mutex, Once, OnceLock};
 
 use crate::pane_graphics_files::OwnedExport;
+mod command_output;
+pub use command_output::CommandOutput;
 #[cfg(target_os = "linux")]
 mod native_image_sources;
 mod native_source;

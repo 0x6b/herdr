@@ -40,6 +40,9 @@ Panes:
 | Swap panes | `prefix+shift+h/j/k/l` |
 | Resize mode | `prefix+r` |
 | Copy mode | `prefix+[` |
+| Copy last command and output | `prefix+y` |
+
+`prefix+y` copies the prompt, command line, and output. Press it repeatedly to cycle through older command blocks. The pane's shell must emit OSC 133 semantic prompt markers; without shell integration, the action does nothing.
 
 Tabs:
 

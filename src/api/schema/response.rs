@@ -166,6 +166,12 @@ pub enum ResponseResult {
         pane_id: String,
         text: String,
     },
+    PaneCommandOutput {
+        pane_id: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        text: Option<String>,
+        next_index: usize,
+    },
     PaneCopyMotion {
         pane_id: String,
         cursor: PaneTextPoint,

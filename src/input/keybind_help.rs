@@ -65,6 +65,7 @@ fn entry(key: impl Into<String>, label: &'static str) -> KeybindHelpEntry {
         "rename pane" => Some(RenamePane),
         "edit scrollback" => Some(EditScrollback),
         "copy mode" => Some(CopyMode),
+        "copy last command and output" => Some(CopyLastCommandOutput),
         "zoom pane" => Some(Zoom),
         "resize mode" => Some(EnterResizeMode),
         "toggle sidebar" => Some(ToggleSidebar),
@@ -219,6 +220,10 @@ pub(crate) fn keybind_help_groups(
                 entry(binding_label(&keybinds.edit_scrollback), "edit scrollback"),
                 entry(binding_label(&keybinds.clear_pane), "clear pane"),
                 entry(binding_label(&keybinds.copy_mode), "copy mode"),
+                entry(
+                    binding_label(&keybinds.copy_last_command_output),
+                    "copy last command and output",
+                ),
                 entry(binding_label(&keybinds.zoom), "zoom pane"),
                 entry(binding_label(&keybinds.resize_mode), "resize mode"),
                 entry(
@@ -333,10 +338,10 @@ fn ordered_subsequence_matches(needle: &str, haystack: &str) -> bool {
 
 pub(crate) fn keybind_help_commands(
     keybinds: &Keybinds,
-    prefix: (KeyCode, KeyModifiers),
+    prefixes: &[crate::config::KeyCombo],
     query: &str,
 ) -> Vec<KeybindHelpCommand> {
-    filter_keybind_help_groups(keybind_help_groups(keybinds, prefix), query)
+    filter_keybind_help_groups(keybind_help_groups(keybinds, prefixes), query)
         .into_iter()
         .flat_map(|(_, entries)| entries)
         .filter_map(|entry| entry.command)
@@ -382,7 +387,7 @@ mod tests {
             ],
         );
         let global = &groups[0].1;
-        assert_eq!(global[0].0, "ctrl+space / ctrl+s");
-        assert_eq!(global[0].1, "prefix mode");
+        assert_eq!(global[0].key, "ctrl+space / ctrl+s");
+        assert_eq!(global[0].label, "prefix mode");
     }
 }
