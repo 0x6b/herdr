@@ -2222,6 +2222,23 @@
           ],
           "type": "object"
         },
+        "LayoutEqualizeParams": {
+          "properties": {
+            "pane_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "tab_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "type": "object"
+        },
         "LayoutExportParams": {
           "properties": {
             "pane_id": {
@@ -2449,6 +2466,23 @@
                 "string",
                 "null"
               ]
+            }
+          },
+          "required": [
+            "pane_id"
+          ],
+          "type": "object"
+        },
+        "PaneCommandOutputParams": {
+          "properties": {
+            "index": {
+              "default": 0,
+              "format": "uint",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "pane_id": {
+              "type": "string"
             }
           },
           "required": [
@@ -5614,6 +5648,22 @@
         {
           "properties": {
             "method": {
+              "const": "layout.equalize",
+              "type": "string"
+            },
+            "params": {
+              "$ref": "#/schemas/request/$defs/LayoutEqualizeParams"
+            }
+          },
+          "required": [
+            "method",
+            "params"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "method": {
               "const": "layout.set_split_ratio",
               "type": "string"
             },
@@ -5731,6 +5781,22 @@
             },
             "params": {
               "$ref": "#/schemas/request/$defs/PaneSelectionReadParams"
+            }
+          },
+          "required": [
+            "method",
+            "params"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "method": {
+              "const": "pane.command_output",
+              "type": "string"
+            },
+            "params": {
+              "$ref": "#/schemas/request/$defs/PaneCommandOutputParams"
             }
           },
           "required": [
@@ -9730,6 +9796,22 @@
                   "$ref": "#/schemas/success_response/$defs/LayoutDescription"
                 },
                 "type": {
+                  "const": "layout_equalized",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "type",
+                "layout"
+              ],
+              "type": "object"
+            },
+            {
+              "properties": {
+                "layout": {
+                  "$ref": "#/schemas/success_response/$defs/LayoutDescription"
+                },
+                "type": {
                   "const": "layout_split_ratio_set",
                   "type": "string"
                 }
@@ -9837,6 +9919,34 @@
                 "type",
                 "pane_id",
                 "text"
+              ],
+              "type": "object"
+            },
+            {
+              "properties": {
+                "next_index": {
+                  "format": "uint",
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "pane_id": {
+                  "type": "string"
+                },
+                "text": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "type": {
+                  "const": "pane_command_output",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "type",
+                "pane_id",
+                "next_index"
               ],
               "type": "object"
             },

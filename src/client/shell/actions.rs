@@ -1288,6 +1288,12 @@ impl ClientShellState {
             KeybindAction::EditScrollback => Some(Method::PaneEditScrollback(PaneTarget {
                 pane_id: focused_pane?,
             })),
+            KeybindAction::EqualizeSplits => Some(Method::LayoutEqualize(
+                crate::api::schema::LayoutEqualizeParams {
+                    tab_id: focused_tab,
+                    pane_id: None,
+                },
+            )),
             KeybindAction::ResizePaneLeft
             | KeybindAction::ResizePaneDown
             | KeybindAction::ResizePaneUp

@@ -68,6 +68,7 @@ fn entry(key: impl Into<String>, label: &'static str) -> KeybindHelpEntry {
         "copy last command and output" => Some(CopyLastCommandOutput),
         "zoom pane" => Some(Zoom),
         "resize mode" => Some(EnterResizeMode),
+        "equalize splits" => Some(EqualizeSplits),
         "toggle sidebar" => Some(ToggleSidebar),
         "focus pane left" => Some(FocusPaneLeft),
         "focus pane down" => Some(FocusPaneDown),
@@ -225,6 +226,7 @@ pub(crate) fn keybind_help_groups(
                 ),
                 entry(binding_label(&keybinds.zoom), "zoom pane"),
                 entry(binding_label(&keybinds.resize_mode), "resize mode"),
+                entry(binding_label(&keybinds.equalize_splits), "equalize splits"),
                 entry(
                     binding_label(&keybinds.resize_pane_left),
                     "resize pane left",

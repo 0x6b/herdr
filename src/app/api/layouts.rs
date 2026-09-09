@@ -3,8 +3,9 @@ use std::path::PathBuf;
 use ratatui::layout::Direction;
 
 use crate::api::schema::{
-    EventData, EventEnvelope, EventKind, LayoutApplyParams, LayoutDescription, LayoutExportParams,
-    LayoutNode, LayoutPane, LayoutSetSplitRatioParams, ResponseResult, SplitDirection,
+    EventData, EventEnvelope, EventKind, LayoutApplyParams, LayoutDescription,
+    LayoutEqualizeParams, LayoutExportParams, LayoutNode, LayoutPane, LayoutSetSplitRatioParams,
+    ResponseResult, SplitDirection,
 };
 use crate::app::{App, Mode};
 use crate::layout::{Node, PaneId};
@@ -249,6 +250,35 @@ impl App {
         };
         self.emit_layout_updated_event(ws_idx, tab_idx);
         encode_success(id, ResponseResult::LayoutSplitRatioSet { layout })
+    }
+
+    pub(super) fn handle_layout_equalize(
+        &mut self,
+        id: String,
+        params: LayoutEqualizeParams,
+    ) -> String {
+        let Some((ws_idx, tab_idx)) = self.resolve_layout_export_target(&LayoutExportParams {
+            tab_id: params.tab_id,
+            pane_id: params.pane_id,
+        }) else {
+            return encode_error(id, "layout_not_found", "layout target not found");
+        };
+
+        let changed = self
+            .state
+            .workspaces
+            .get_mut(ws_idx)
+            .and_then(|workspace| workspace.tabs.get_mut(tab_idx))
+            .is_some_and(|tab| tab.layout.equalize_splits());
+        if changed {
+            self.schedule_session_save();
+            self.emit_layout_updated_event(ws_idx, tab_idx);
+        }
+
+        let Some(layout) = self.layout_description(ws_idx, tab_idx) else {
+            return encode_error(id, "layout_not_found", "layout unavailable");
+        };
+        encode_success(id, ResponseResult::LayoutEqualized { layout })
     }
 
     fn resolve_layout_export_target(&self, params: &LayoutExportParams) -> Option<(usize, usize)> {
@@ -702,6 +732,42 @@ mod tests {
             EventData::LayoutUpdated { layout }
                 if layout.tab_id == app.public_tab_id(0, 0).unwrap()
                     && (layout.splits[0].ratio - 0.72).abs() < f32::EPSILON
+        ));
+    }
+
+    #[test]
+    fn layout_equalize_balances_same_direction_splits() {
+        let mut app = app_with_workspace();
+        app.state.workspaces[0].test_split(Direction::Horizontal);
+        app.state.workspaces[0].test_split(Direction::Horizontal);
+        let layout = &mut app.state.workspaces[0].tabs[0].layout;
+        layout.set_ratio_at(&[], 0.7);
+        layout.set_ratio_at(&[true], 0.8);
+
+        let response = app.handle_layout_equalize(
+            "req".into(),
+            LayoutEqualizeParams {
+                tab_id: None,
+                pane_id: None,
+            },
+        );
+
+        let success: SuccessResponse = serde_json::from_str(&response).unwrap();
+        let ResponseResult::LayoutEqualized { layout } = success.result else {
+            panic!("expected layout equalized response");
+        };
+        let LayoutNode::Split { ratio, second, .. } = layout.root else {
+            panic!("expected split layout root");
+        };
+        assert!((ratio - (1.0 / 3.0)).abs() < f32::EPSILON);
+        let LayoutNode::Split { ratio, .. } = *second else {
+            panic!("expected nested split");
+        };
+        assert!((ratio - 0.5).abs() < f32::EPSILON);
+        assert!(matches!(
+            &app.event_hub.events_after(0).last().expect("layout event").1.data,
+            EventData::LayoutUpdated { layout }
+                if layout.tab_id == app.public_tab_id(0, 0).unwrap()
         ));
     }
 

@@ -758,6 +758,32 @@ fn help_overlay_restores_released_search_scroll_and_custom_binding_behavior() {
 }
 
 #[test]
+fn help_search_executes_the_selected_command() {
+    let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
+    state.set_snapshot(Box::new(snapshot()));
+    let mut open = ClientShellInput::default();
+    state.record_binding(
+        crate::input::KeybindMatch::Action(crate::input::KeybindAction::Help),
+        &mut open,
+    );
+
+    state.handle_input_bytes(b"/");
+    state.handle_input_bytes(b"equalize");
+    let outcome = state.handle_input_bytes(b"\r");
+
+    assert!(state.overlay.is_none());
+    assert!(matches!(
+        &outcome.actions[..],
+        [ClientShellAction::Endpoint { request, .. }]
+            if matches!(
+                &request.method,
+                crate::api::schema::Method::LayoutEqualize(params)
+                    if params.tab_id.as_deref() == Some("tab_1")
+            )
+    ));
+}
+
+#[test]
 fn resize_mode_reuses_endpoint_resize_and_stays_active_until_done() {
     let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
     state.set_snapshot(Box::new(snapshot()));

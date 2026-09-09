@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Added
+- The searchable command panel can now equalize split sizes in the active tab. The action is also available through the optional `keys.equalize_splits` binding and the `layout.equalize` socket method.
+
 ## [0.9.0] - 2026-09-07
 
 ### Added
