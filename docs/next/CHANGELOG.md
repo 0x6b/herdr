@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Added
+- The searchable command panel can now equalize split sizes in the active tab. The action is also available through the optional `keys.equalize_splits` binding and the `layout.equalize` socket method.
+
 ## [0.9.3] - 2026-09-29
 
 This is a hotfix release for v0.9.2. See the v0.9.2 notes for the full feature release: https://github.com/herdrdev/herdr/releases/tag/v0.9.2

@@ -101,8 +101,17 @@ mod tests {
               \x1b]133;A\x07$ \x1b]133;B\x07second\r\n\x1b]133;C\x07two\r\n\x1b]133;D;0\x07\
               \x1b]133;A\x07$ \x1b]133;B\x07",
         );
-        assert_eq!(terminal.command_output(0).unwrap(), CommandOutput::Text("$ second\ntwo".to_string()));
-        assert_eq!(terminal.command_output(1).unwrap(), CommandOutput::Text("$ first\none".to_string()));
-        assert_eq!(terminal.command_output(2).unwrap(), CommandOutput::NoCommand);
+        assert_eq!(
+            terminal.command_output(0).unwrap(),
+            CommandOutput::Text("$ second\ntwo".to_string())
+        );
+        assert_eq!(
+            terminal.command_output(1).unwrap(),
+            CommandOutput::Text("$ first\none".to_string())
+        );
+        assert_eq!(
+            terminal.command_output(2).unwrap(),
+            CommandOutput::NoCommand
+        );
     }
 }
