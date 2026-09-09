@@ -455,6 +455,7 @@ impl ClientShellState {
             }
             Some(ClientShellOverlay::Help(help)) if help.search_focused => {
                 if help.query.insert(text) {
+                    help.selected = 0;
                     help.scroll = 0;
                 }
                 true
@@ -798,10 +799,18 @@ impl ClientShellState {
                         if let Some(ClientShellOverlay::Help(help)) = self.overlay.as_mut() {
                             help.search_focused = false;
                             help.query.clear();
+                            help.selected = 0;
                             help.scroll = 0;
                         }
                     }
-                    KeyCode::Enter => self.overlay = None,
+                    KeyCode::Enter => self.execute_help_selection(outcome),
+                    KeyCode::Home => {
+                        if let Some(ClientShellOverlay::Help(help)) = self.overlay.as_mut() {
+                            help.selected = 0;
+                            help.scroll = 0;
+                        }
+                    }
+                    KeyCode::End => self.move_help_selection(isize::MAX),
                     KeyCode::Up
                     | KeyCode::Down
                     | KeyCode::PageUp
@@ -817,12 +826,7 @@ impl ClientShellState {
                             KeyCode::PageDown => 8,
                             _ => unreachable!(),
                         };
-                        if let Some(ClientShellOverlay::Help(help)) = self.overlay.as_mut() {
-                            help.scroll = help
-                                .scroll
-                                .saturating_add_signed(delta)
-                                .min(self.hits.help_max_scroll);
-                        }
+                        self.move_help_selection(delta);
                     }
                     _ => {}
                 }
@@ -831,30 +835,29 @@ impl ClientShellState {
             }
 
             match code {
-                KeyCode::Esc | KeyCode::Enter => self.overlay = None,
+                KeyCode::Esc => self.overlay = None,
+                KeyCode::Enter => self.execute_help_selection(outcome),
                 KeyCode::Home => {
                     if let Some(ClientShellOverlay::Help(help)) = self.overlay.as_mut() {
+                        help.selected = 0;
                         help.scroll = 0;
                     }
                 }
                 KeyCode::End => {
-                    if let Some(ClientShellOverlay::Help(help)) = self.overlay.as_mut() {
-                        help.scroll = self.hits.help_max_scroll;
-                    }
+                    self.move_help_selection(isize::MAX);
                 }
-                KeyCode::Up
-                | KeyCode::Char('k')
-                | KeyCode::Down
-                | KeyCode::Char('j')
-                | KeyCode::PageUp
-                | KeyCode::PageDown => {
+                KeyCode::Up | KeyCode::Down | KeyCode::PageUp | KeyCode::PageDown => {
                     let delta = match code {
-                        KeyCode::Up | KeyCode::Char('k') => -1,
-                        KeyCode::Down | KeyCode::Char('j') => 1,
+                        KeyCode::Up => -1,
+                        KeyCode::Down => 1,
                         KeyCode::PageUp => -8,
                         KeyCode::PageDown => 8,
                         _ => unreachable!(),
                     };
+                    self.move_help_selection(delta);
+                }
+                KeyCode::Char('k') | KeyCode::Char('j') => {
+                    let delta = if code == KeyCode::Char('k') { -1 } else { 1 };
                     if let Some(ClientShellOverlay::Help(help)) = self.overlay.as_mut() {
                         help.scroll = help
                             .scroll
@@ -865,6 +868,7 @@ impl ClientShellState {
                 _ if text_character == Some('/') => {
                     if let Some(ClientShellOverlay::Help(help)) = self.overlay.as_mut() {
                         help.search_focused = true;
+                        help.selected = 0;
                         help.scroll = 0;
                     }
                 }

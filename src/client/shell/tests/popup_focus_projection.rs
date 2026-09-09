@@ -93,6 +93,7 @@ fn modal_paste_target_requires_a_focused_editable_client_field() {
     state.overlay = Some(ClientShellOverlay::Help(ClientHelpOverlay {
         query: TextEditor::default(),
         search_focused: false,
+        selected: 0,
         scroll: 0,
     }));
     assert!(!state.modal_paste_target_active());

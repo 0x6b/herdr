@@ -373,6 +373,7 @@ pub(super) struct ClientNavigatorOverlay {
 pub(super) struct ClientHelpOverlay {
     pub(super) query: TextEditor,
     pub(super) search_focused: bool,
+    pub(super) selected: usize,
     pub(super) scroll: usize,
 }
 
