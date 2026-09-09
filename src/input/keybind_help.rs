@@ -65,6 +65,7 @@ fn entry(key: impl Into<String>, label: &'static str) -> KeybindHelpEntry {
         "rename pane" => Some(RenamePane),
         "edit scrollback" => Some(EditScrollback),
         "copy mode" => Some(CopyMode),
+        "copy last command and output" => Some(CopyLastCommandOutput),
         "zoom pane" => Some(Zoom),
         "resize mode" => Some(EnterResizeMode),
         "toggle sidebar" => Some(ToggleSidebar),
@@ -218,6 +219,10 @@ pub(crate) fn keybind_help_groups(
                 entry(binding_label(&keybinds.rename_pane), "rename pane"),
                 entry(binding_label(&keybinds.edit_scrollback), "edit scrollback"),
                 entry(binding_label(&keybinds.copy_mode), "copy mode"),
+                entry(
+                    binding_label(&keybinds.copy_last_command_output),
+                    "copy last command and output",
+                ),
                 entry(binding_label(&keybinds.zoom), "zoom pane"),
                 entry(binding_label(&keybinds.resize_mode), "resize mode"),
                 entry(

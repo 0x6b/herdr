@@ -61,6 +61,12 @@ impl ClientShellState {
         binding: crate::input::KeybindMatch,
         outcome: &mut ClientShellInput,
     ) {
+        if !matches!(
+            &binding,
+            crate::input::KeybindMatch::Action(crate::input::KeybindAction::CopyLastCommandOutput)
+        ) {
+            self.command_output_cycle = None;
+        }
         match binding {
             crate::input::KeybindMatch::Action(crate::input::KeybindAction::Detach) => {
                 outcome.detach = true;
@@ -216,6 +222,10 @@ impl ClientShellState {
                     }
                     return;
                 }
+                if action == crate::input::KeybindAction::CopyLastCommandOutput {
+                    self.request_command_output_copy(outcome);
+                    return;
+                }
                 if self.handle_endpoint_navigation(action, outcome) {
                     return;
                 }
@@ -348,6 +358,33 @@ impl ClientShellState {
             PendingEndpointKind::SelectionCopy,
             outcome,
         );
+    }
+
+    fn request_command_output_copy(&mut self, outcome: &mut ClientShellInput) {
+        if self.command_output_in_flight {
+            return;
+        }
+        let Some(pane_id) = self.focused_pane_id() else {
+            self.command_output_cycle = None;
+            return;
+        };
+        let index = self
+            .command_output_cycle
+            .as_ref()
+            .filter(|(cycle_pane_id, _)| cycle_pane_id == &pane_id)
+            .map_or(0, |(_, index)| *index);
+        if self.push_endpoint_method_with_kind(
+            crate::api::schema::Method::PaneCommandOutput(
+                crate::api::schema::PaneCommandOutputParams {
+                    pane_id: pane_id.clone(),
+                    index,
+                },
+            ),
+            PendingEndpointKind::CommandOutput { pane_id },
+            outcome,
+        ) {
+            self.command_output_in_flight = true;
+        }
     }
 
     pub(super) fn request_word_selection(
@@ -717,6 +754,41 @@ impl ClientShellState {
                         (true, Vec::new())
                     }
                     Err(_) => (true, Vec::new()),
+                };
+            }
+            PendingEndpointKind::CommandOutput { pane_id } => {
+                self.command_output_in_flight = false;
+                return match result {
+                    Ok(crate::api::schema::ResponseResult::PaneCommandOutput {
+                        pane_id: returned_pane_id,
+                        text: Some(text),
+                        next_index,
+                    }) if returned_pane_id == pane_id => {
+                        self.command_output_cycle = Some((pane_id, next_index));
+                        let repaint = self.show_copy_feedback(std::time::Instant::now());
+                        let mut content = text.into_bytes();
+                        content.push(b'\n');
+                        (repaint, vec![ClientShellAction::ClipboardWrite(content)])
+                    }
+                    Ok(crate::api::schema::ResponseResult::PaneCommandOutput {
+                        pane_id: returned_pane_id,
+                        text: None,
+                        ..
+                    }) if returned_pane_id == pane_id => {
+                        self.command_output_cycle = None;
+                        (false, Vec::new())
+                    }
+                    Ok(_) => {
+                        self.command_output_cycle = None;
+                        self.endpoint_error = Some(
+                            "endpoint returned an unexpected command output result".to_owned(),
+                        );
+                        (true, Vec::new())
+                    }
+                    Err(_) => {
+                        self.command_output_cycle = None;
+                        (true, Vec::new())
+                    }
                 };
             }
             PendingEndpointKind::WordSelection {

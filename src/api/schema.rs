@@ -169,6 +169,8 @@ pub enum Method {
     PaneEditScrollback(PaneTarget),
     #[serde(rename = "pane.selection.read")]
     PaneSelectionRead(PaneSelectionReadParams),
+    #[serde(rename = "pane.command_output")]
+    PaneCommandOutput(PaneCommandOutputParams),
     #[serde(rename = "pane.copy_motion")]
     PaneCopyMotion(PaneCopyMotionParams),
     #[serde(rename = "pane.copy_search")]

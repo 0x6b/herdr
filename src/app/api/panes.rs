@@ -1,9 +1,9 @@
 use bytes::Bytes;
 
 use crate::api::schema::{
-    EventData, EventEnvelope, EventKind, PaneClearAgentAuthorityParams, PaneCopyMotion,
-    PaneCopyMotionParams, PaneCopySearchDirection, PaneCopySearchParams, PaneCurrentParams,
-    PaneDirection, PaneEdgesParams, PaneEdgesResult, PaneFocusDirectionParams,
+    EventData, EventEnvelope, EventKind, PaneClearAgentAuthorityParams, PaneCommandOutputParams,
+    PaneCopyMotion, PaneCopyMotionParams, PaneCopySearchDirection, PaneCopySearchParams,
+    PaneCurrentParams, PaneDirection, PaneEdgesParams, PaneEdgesResult, PaneFocusDirectionParams,
     PaneFocusDirectionReason, PaneFocusDirectionResult, PaneInfo, PaneInputSetParams,
     PaneLayoutPane, PaneLayoutParams, PaneLayoutRect, PaneLayoutSnapshot, PaneLayoutSplit,
     PaneListParams, PaneMoveDestination, PaneMoveParams, PaneMoveReason, PaneMoveResult,
@@ -264,6 +264,44 @@ impl App {
             ),
             Err((code, message)) => encode_error(id, code, message),
         }
+    }
+
+    pub(super) fn handle_pane_command_output(
+        &mut self,
+        id: String,
+        params: PaneCommandOutputParams,
+    ) -> String {
+        let Some((ws_idx, pane_id)) = self.parse_pane_id(&params.pane_id) else {
+            return pane_not_found(id, &params.pane_id);
+        };
+        let Some(runtime) =
+            self.state
+                .runtime_for_pane_in_workspace(&self.terminal_runtimes, ws_idx, pane_id)
+        else {
+            return pane_not_found(id, &params.pane_id);
+        };
+
+        let mut index = params.index;
+        let mut wrapped = false;
+        let text = loop {
+            match runtime.command_output(index) {
+                crate::ghostty::CommandOutput::Text(text) => break Some(text),
+                crate::ghostty::CommandOutput::Empty => index = index.saturating_add(1),
+                crate::ghostty::CommandOutput::NoCommand if !wrapped && index != 0 => {
+                    index = 0;
+                    wrapped = true;
+                }
+                crate::ghostty::CommandOutput::NoCommand => break None,
+            }
+        };
+        encode_success(
+            id,
+            ResponseResult::PaneCommandOutput {
+                pane_id: params.pane_id,
+                text,
+                next_index: index.saturating_add(1),
+            },
+        )
     }
 
     pub(super) fn handle_pane_copy_motion(
@@ -2445,6 +2483,56 @@ mod tests {
             ResponseResult::PaneSelection {
                 pane_id: public_pane_id,
                 text: "hello".into(),
+            }
+        );
+    }
+
+    #[tokio::test]
+    async fn api_pane_command_output_cycles_and_wraps() {
+        let (mut app, public_pane_id) = app_with_test_workspace();
+        let pane_id = app.state.workspaces[0].tabs[0].root_pane;
+        app.state.insert_test_runtime(
+            pane_id,
+            crate::terminal::TerminalRuntime::test_with_screen_bytes(
+                30,
+                10,
+                b"\x1b]133;A\x07$ \x1b]133;B\x07first\r\n\x1b]133;C\x07one\r\n\x1b]133;D;0\x07\
+                  \x1b]133;A\x07\x1b]133;B\x07\x1b]133;D;0\x07\
+                  \x1b]133;A\x07$ \x1b]133;B\x07",
+            ),
+        );
+
+        let response = app.handle_pane_command_output(
+            "req".into(),
+            PaneCommandOutputParams {
+                pane_id: public_pane_id.clone(),
+                index: 0,
+            },
+        );
+        let success: SuccessResponse = serde_json::from_str(&response).unwrap();
+        assert_eq!(
+            success.result,
+            ResponseResult::PaneCommandOutput {
+                pane_id: public_pane_id.clone(),
+                text: Some("$ first\none".into()),
+                next_index: 1,
+            }
+        );
+
+        let wrapped = app.handle_pane_command_output(
+            "req".into(),
+            PaneCommandOutputParams {
+                pane_id: public_pane_id.clone(),
+                index: 1,
+            },
+        );
+        let success: SuccessResponse = serde_json::from_str(&wrapped).unwrap();
+        assert_eq!(
+            success.result,
+            ResponseResult::PaneCommandOutput {
+                pane_id: public_pane_id,
+                text: Some("$ first\none".into()),
+                next_index: 1,
             }
         );
     }

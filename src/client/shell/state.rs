@@ -690,6 +690,9 @@ pub(super) enum PendingEndpointKind {
         forced: bool,
     },
     SelectionCopy,
+    CommandOutput {
+        pane_id: String,
+    },
     PaneScroll {
         pane_id: String,
         serial: u64,
@@ -953,6 +956,8 @@ pub(crate) struct ClientShellState {
     pub(super) pane_scroll_targets: HashMap<String, usize>,
     pub(super) copy_feedback: Option<crate::app::state::CopyFeedback>,
     pub(super) copy_feedback_deadline: Option<std::time::Instant>,
+    pub(super) command_output_cycle: Option<(String, usize)>,
+    pub(super) command_output_in_flight: bool,
     pub(super) host_mouse_pixels: Option<crate::input::mouse::HostPixels>,
     pub(super) input_leases: ClientInputLeases,
     pub(super) popup_pending: bool,
@@ -1108,6 +1113,8 @@ impl ClientShellState {
             pane_scroll_targets: HashMap::new(),
             copy_feedback: None,
             copy_feedback_deadline: None,
+            command_output_cycle: None,
+            command_output_in_flight: false,
             host_mouse_pixels: None,
             input_leases: ClientInputLeases::default(),
             popup_pending: false,
@@ -1289,6 +1296,8 @@ impl ClientShellState {
         self.reset_copy_pipeline();
         self.copy_feedback = None;
         self.copy_feedback_deadline = None;
+        self.command_output_cycle = None;
+        self.command_output_in_flight = false;
         self.host_mouse_pixels = None;
         self.dismissed_product_announcement = None;
     }

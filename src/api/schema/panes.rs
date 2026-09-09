@@ -263,6 +263,13 @@ pub struct PaneSelectionReadParams {
     pub content_revision: Option<u64>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct PaneCommandOutputParams {
+    pub pane_id: String,
+    #[serde(default)]
+    pub index: usize,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum PaneCopyMotion {

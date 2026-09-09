@@ -166,6 +166,65 @@ fn clipboard_feedback_is_client_local_and_respects_config() {
 }
 
 #[test]
+fn copy_last_command_output_cycles_and_writes_the_endpoint_result() {
+    let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
+    state.set_snapshot(Box::new(snapshot()));
+    let mut first = ClientShellInput::default();
+    state.record_binding(
+        crate::input::KeybindMatch::Action(crate::input::KeybindAction::CopyLastCommandOutput),
+        &mut first,
+    );
+    let [ClientShellAction::Endpoint { request, .. }] = &first.actions[..] else {
+        panic!("copy action should request command output");
+    };
+    let request_id = request.id.clone();
+    assert!(matches!(
+        &request.method,
+        crate::api::schema::Method::PaneCommandOutput(params)
+            if params.pane_id == "pane_1" && params.index == 0
+    ));
+
+    let (repaint, actions) = state.handle_endpoint_result(
+        "boot-1",
+        &request_id,
+        Ok(crate::api::schema::ResponseResult::PaneCommandOutput {
+            pane_id: "pane_1".into(),
+            text: Some("$ echo one\none".into()),
+            next_index: 1,
+        }),
+    );
+    assert!(repaint);
+    assert!(matches!(
+        &actions[..],
+        [ClientShellAction::ClipboardWrite(bytes)] if bytes == b"$ echo one\none\n"
+    ));
+
+    let pane_input = state.handle_raw_events(vec![RawInputEvent::Text(
+        crate::input::TextCommit::new("x"),
+    )]);
+    assert!(matches!(
+        &pane_input.requests[..],
+        [ClientMessage::ClientShellPaneInput { pane_id, events }]
+            if pane_id == "pane_1"
+                && matches!(&events[..], [ClientPaneInputEvent::TextCommit(text)] if text == "x")
+    ));
+
+    let mut second = ClientShellInput::default();
+    state.record_binding(
+        crate::input::KeybindMatch::Action(crate::input::KeybindAction::CopyLastCommandOutput),
+        &mut second,
+    );
+    assert!(matches!(
+        &second.actions[..],
+        [ClientShellAction::Endpoint { request, .. }]
+            if matches!(
+                &request.method,
+                crate::api::schema::Method::PaneCommandOutput(params) if params.index == 0
+            )
+    ));
+}
+
+#[test]
 fn retained_mouse_selection_survives_output_and_copies_without_terminal_input() {
     let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
     state.config.copy_on_select = false;
