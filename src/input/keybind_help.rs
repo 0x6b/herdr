@@ -4,10 +4,21 @@ use crossterm::event::{KeyCode, KeyModifiers};
 
 use crate::{
     config::{ActionKeybinds, IndexedKeybind, Keybinds},
-    input::TerminalKey,
+    input::{KeybindAction, TerminalKey},
 };
 
-pub(crate) type KeybindHelpEntry = (String, Cow<'static, str>);
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum KeybindHelpCommand {
+    Action(KeybindAction),
+    CustomCommand(usize),
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct KeybindHelpEntry {
+    pub(crate) key: String,
+    pub(crate) label: Cow<'static, str>,
+    pub(crate) command: Option<KeybindHelpCommand>,
+}
 pub(crate) type KeybindHelpGroup = (&'static str, Vec<KeybindHelpEntry>);
 
 pub(crate) fn keybind_help_text_char(key: &TerminalKey) -> Option<char> {
@@ -24,7 +35,53 @@ pub(crate) fn keybind_help_text_char(key: &TerminalKey) -> Option<char> {
 }
 
 fn entry(key: impl Into<String>, label: &'static str) -> KeybindHelpEntry {
-    (key.into(), Cow::Borrowed(label))
+    use KeybindAction::*;
+    let action = match label {
+        "keybinds" => Some(Help),
+        "settings" => Some(Settings),
+        "detach" => Some(Detach),
+        "reload config" => Some(ReloadConfig),
+        "open notification target" => Some(OpenNotificationTarget),
+        "workspace navigation" => Some(WorkspacePicker),
+        "session navigator" => Some(OpenNavigator),
+        "new workspace" => Some(NewWorkspace),
+        "new worktree" => Some(NewWorktree),
+        "open worktree" => Some(OpenWorktree),
+        "delete worktree checkout" => Some(RemoveWorktree),
+        "rename workspace" => Some(RenameWorkspace),
+        "close workspace" => Some(CloseWorkspace),
+        "previous workspace" => Some(PreviousWorkspace),
+        "next workspace" => Some(NextWorkspace),
+        "previous agent" => Some(PreviousAgent),
+        "next agent" => Some(NextAgent),
+        "new tab" => Some(NewTab),
+        "rename tab" => Some(RenameTab),
+        "previous tab" => Some(PreviousTab),
+        "next tab" => Some(NextTab),
+        "close tab" => Some(CloseTab),
+        "split vertical" => Some(SplitVertical),
+        "split horizontal" => Some(SplitHorizontal),
+        "close pane" => Some(ClosePane),
+        "rename pane" => Some(RenamePane),
+        "edit scrollback" => Some(EditScrollback),
+        "copy mode" => Some(CopyMode),
+        "zoom pane" => Some(Zoom),
+        "resize mode" => Some(EnterResizeMode),
+        "toggle sidebar" => Some(ToggleSidebar),
+        "focus pane left" => Some(FocusPaneLeft),
+        "focus pane down" => Some(FocusPaneDown),
+        "focus pane up" => Some(FocusPaneUp),
+        "focus pane right" => Some(FocusPaneRight),
+        "cycle pane next" => Some(CyclePaneNext),
+        "cycle pane previous" => Some(CyclePanePrevious),
+        "last pane" => Some(LastPane),
+        _ => None,
+    };
+    KeybindHelpEntry {
+        key: key.into(),
+        label: Cow::Borrowed(label),
+        command: action.map(KeybindHelpCommand::Action),
+    }
 }
 
 fn binding_label(bindings: &ActionKeybinds) -> String {
@@ -200,15 +257,15 @@ pub(crate) fn keybind_help_groups(
             keybinds
                 .custom_commands
                 .iter()
-                .map(|binding| {
-                    (
-                        binding.label.clone(),
-                        binding
-                            .description
-                            .clone()
-                            .map(Cow::Owned)
-                            .unwrap_or(Cow::Borrowed("custom command")),
-                    )
+                .enumerate()
+                .map(|(index, binding)| KeybindHelpEntry {
+                    key: binding.label.clone(),
+                    label: binding
+                        .description
+                        .clone()
+                        .map(Cow::Owned)
+                        .unwrap_or(Cow::Borrowed("custom command")),
+                    command: Some(KeybindHelpCommand::CustomCommand(index)),
                 })
                 .collect(),
         ));
@@ -220,21 +277,68 @@ pub(crate) fn filter_keybind_help_groups(
     groups: Vec<KeybindHelpGroup>,
     query: &str,
 ) -> Vec<KeybindHelpGroup> {
+    let query = query.trim();
     if query.is_empty() {
         return groups;
     }
-    let query = query.to_lowercase();
-    groups
+
+    let mut command_groups = Vec::new();
+    let mut references = Vec::new();
+    for (group, entries) in groups {
+        let mut commands = Vec::new();
+        for entry in entries {
+            if !keybind_help_matches_query(query, &format!("{} {}", entry.key, entry.label)) {
+                continue;
+            }
+            if entry.command.is_some() {
+                commands.push(entry);
+            } else {
+                references.push(entry);
+            }
+        }
+        if !commands.is_empty() {
+            command_groups.push((group, commands));
+        }
+    }
+    if !references.is_empty() {
+        command_groups.push(("reference only", references));
+    }
+    command_groups
+}
+
+fn keybind_help_matches_query(query: &str, text: &str) -> bool {
+    let haystack = text.to_lowercase();
+    query
+        .to_lowercase()
+        .split_whitespace()
+        .all(|needle| haystack.contains(needle) || ordered_subsequence_matches(needle, &haystack))
+}
+
+fn ordered_subsequence_matches(needle: &str, haystack: &str) -> bool {
+    let mut needle_chars = needle.chars();
+    let Some(mut current) = needle_chars.next() else {
+        return true;
+    };
+    for haystack_char in haystack.chars() {
+        if haystack_char == current {
+            let Some(next) = needle_chars.next() else {
+                return true;
+            };
+            current = next;
+        }
+    }
+    false
+}
+
+pub(crate) fn keybind_help_commands(
+    keybinds: &Keybinds,
+    prefix: (KeyCode, KeyModifiers),
+    query: &str,
+) -> Vec<KeybindHelpCommand> {
+    filter_keybind_help_groups(keybind_help_groups(keybinds, prefix), query)
         .into_iter()
-        .filter_map(|(group, entries)| {
-            let entries = entries
-                .into_iter()
-                .filter(|(key, label)| {
-                    key.to_lowercase().contains(&query) || label.to_lowercase().contains(&query)
-                })
-                .collect::<Vec<_>>();
-            (!entries.is_empty()).then_some((group, entries))
-        })
+        .flat_map(|(_, entries)| entries)
+        .filter_map(|entry| entry.command)
         .collect()
 }
 
@@ -259,11 +363,11 @@ mod tests {
     fn filter_matches_labels_and_shortcuts_case_insensitively() {
         let filtered = filter_keybind_help_groups(groups(), "WoRk");
         assert_eq!(filtered.len(), 1);
-        assert_eq!(filtered[0].1[0].1, "workspace navigation");
+        assert_eq!(filtered[0].1[0].label, "workspace navigation");
 
         let filtered = filter_keybind_help_groups(groups(), "x");
         assert_eq!(filtered.len(), 1);
-        assert_eq!(filtered[0].1[0].1, "close pane");
+        assert_eq!(filtered[0].1[0].label, "close pane");
         assert!(filter_keybind_help_groups(groups(), "panes").is_empty());
     }
 }

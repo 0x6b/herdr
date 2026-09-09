@@ -11,7 +11,8 @@ pub use encode::{
     encode_cursor_key, encode_key, encode_mouse_button, encode_mouse_scroll, encode_terminal_key,
 };
 pub(crate) use keybind_help::{
-    filter_keybind_help_groups, keybind_help_groups, keybind_help_text_char,
+    filter_keybind_help_groups, keybind_help_commands, keybind_help_groups, keybind_help_text_char,
+    KeybindHelpCommand,
 };
 pub(crate) use keybindings::{
     resolve_custom_command, resolve_direct_binding, resolve_indexed_action,

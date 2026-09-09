@@ -1,6 +1,61 @@
 use super::*;
 
 impl ClientShellState {
+    pub(super) fn move_help_selection(&mut self, delta: isize) {
+        let Some(ClientShellOverlay::Help(help)) = self.overlay.as_ref() else {
+            return;
+        };
+        let count = crate::input::keybind_help_commands(
+            &self.config.keybinds.keybinds,
+            self.config.keybinds.prefix,
+            &help.query,
+        )
+        .len();
+        if let Some(ClientShellOverlay::Help(help)) = self.overlay.as_mut() {
+            help.selected = help
+                .selected
+                .saturating_add_signed(delta)
+                .min(count.saturating_sub(1));
+            help.scroll = help
+                .scroll
+                .saturating_add_signed(delta)
+                .min(self.hits.help_max_scroll);
+        }
+    }
+
+    pub(super) fn execute_help_selection(&mut self, outcome: &mut ClientShellInput) {
+        let Some(ClientShellOverlay::Help(help)) = self.overlay.as_ref() else {
+            return;
+        };
+        let command = crate::input::keybind_help_commands(
+            &self.config.keybinds.keybinds,
+            self.config.keybinds.prefix,
+            &help.query,
+        )
+        .get(help.selected)
+        .copied();
+        self.overlay = None;
+        match command {
+            Some(crate::input::KeybindHelpCommand::Action(crate::input::KeybindAction::Help))
+            | None => {}
+            Some(crate::input::KeybindHelpCommand::Action(action)) => {
+                self.record_binding(crate::input::KeybindMatch::Action(action), outcome);
+            }
+            Some(crate::input::KeybindHelpCommand::CustomCommand(index)) => {
+                if let Some(command) = self
+                    .config
+                    .keybinds
+                    .keybinds
+                    .custom_commands
+                    .get(index)
+                    .cloned()
+                {
+                    self.record_binding(crate::input::KeybindMatch::Command(command), outcome);
+                }
+            }
+        }
+    }
+
     pub(super) fn record_binding(
         &mut self,
         binding: crate::input::KeybindMatch,
@@ -52,6 +107,7 @@ impl ClientShellState {
                     self.overlay = Some(ClientShellOverlay::Help(ClientHelpOverlay {
                         query: String::new(),
                         search_focused: false,
+                        selected: 0,
                         scroll: 0,
                     }));
                     outcome.repaint = true;

@@ -6,6 +6,7 @@ fn pasted_help_and_copy_queries_strip_control_characters() {
     state.overlay = Some(ClientShellOverlay::Help(ClientHelpOverlay {
         query: String::new(),
         search_focused: true,
+        selected: 0,
         scroll: 0,
     }));
 

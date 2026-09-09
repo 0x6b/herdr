@@ -933,6 +933,7 @@ fn render_navigator_overlay(
 fn help_lines(
     keybinds: &LiveKeybindConfig,
     query: &str,
+    selected: usize,
     palette: &Palette,
 ) -> Vec<(usize, ratatui::text::Line<'static>)> {
     use ratatui::text::{Line, Span};
@@ -943,7 +944,7 @@ fn help_lines(
     );
     let key_width = groups
         .iter()
-        .flat_map(|(_, entries)| entries.iter().map(|(key, _)| key.chars().count()))
+        .flat_map(|(_, entries)| entries.iter().map(|entry| entry.key.chars().count()))
         .max()
         .unwrap_or(8);
     if groups.is_empty() {
@@ -958,6 +959,7 @@ fn help_lines(
     }
 
     let mut lines = Vec::new();
+    let mut command_index = 0;
     for (group, entries) in groups {
         lines.push((
             group.len() + 1,
@@ -969,9 +971,18 @@ fn help_lines(
                     .add_modifier(Modifier::BOLD),
             )),
         ));
-        for (key, label) in entries {
-            let padded_key = format!(" {key:<key_width$} ");
-            let width = padded_key.chars().count() + label.chars().count();
+        for entry in entries {
+            let is_selected = entry.command.is_some() && command_index == selected;
+            if entry.command.is_some() {
+                command_index += 1;
+            }
+            let background = if is_selected {
+                palette.surface0
+            } else {
+                palette.panel_bg
+            };
+            let padded_key = format!(" {:<key_width$} ", entry.key);
+            let width = padded_key.chars().count() + entry.label.chars().count();
             lines.push((
                 width,
                 Line::from(vec![
@@ -979,12 +990,12 @@ fn help_lines(
                         padded_key,
                         Style::default()
                             .fg(palette.mauve)
-                            .bg(palette.panel_bg)
+                            .bg(background)
                             .add_modifier(Modifier::BOLD),
                     ),
                     Span::styled(
-                        label.into_owned(),
-                        Style::default().fg(palette.text).bg(palette.panel_bg),
+                        entry.label.into_owned(),
+                        Style::default().fg(palette.text).bg(background),
                     ),
                 ]),
             ));
@@ -1049,7 +1060,7 @@ fn render_help_overlay(
     );
 
     let body = Rect::new(i.x, i.y + 3, i.width, i.height.saturating_sub(5));
-    let lines = help_lines(k, &h.query, p);
+    let lines = help_lines(k, &h.query, h.selected, p);
     let viewport_rows = usize::from(body.height.max(1));
     let wrapped_rows = |width: u16| {
         let width = usize::from(width.max(1));
@@ -1106,9 +1117,9 @@ fn render_help_overlay(
         i.bottom() - 1,
         i.width,
         if h.search_focused {
-            " filter type/backspace · clear ctrl+u · scroll ↑↓/pgup/pgdn · back esc"
+            " filter type/backspace · select ↑↓ · run enter · back esc"
         } else {
-            " search / · scroll j/k/↑↓/pgup/pgdn · close esc/enter"
+            " search / · select ↑↓ · scroll j/k · run enter · close esc"
         },
         Style::default().fg(p.overlay0).bg(p.panel_bg),
     );
