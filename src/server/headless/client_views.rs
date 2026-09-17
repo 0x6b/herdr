@@ -249,6 +249,7 @@ impl HeadlessServer {
             method,
             Method::AgentFocus(_)
                 | Method::CommandInvoke(_)
+                | Method::LayoutEqualize(_)
                 | Method::LayoutSetSplitRatio(_)
                 | Method::PaneClose(_)
                 | Method::PaneCopyMotion(_)
@@ -290,6 +291,7 @@ impl HeadlessServer {
             method,
             Method::AgentFocus(_)
                 | Method::CommandInvoke(_)
+                | Method::LayoutEqualize(_)
                 | Method::LayoutSetSplitRatio(_)
                 | Method::PaneClose(_)
                 | Method::PaneEditScrollback(_)

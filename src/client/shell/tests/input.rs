@@ -270,6 +270,7 @@ fn delayed_link_fallback_does_not_replay_against_changed_geometry() {
                     state.overlay = Some(ClientShellOverlay::Help(ClientHelpOverlay {
                         query: TextEditor::default(),
                         search_focused: false,
+                        selected: 0,
                         scroll: 0,
                     }))
                 }

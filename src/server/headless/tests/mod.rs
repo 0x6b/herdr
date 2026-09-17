@@ -2345,6 +2345,54 @@ async fn repeated_layout_action_reapplies_controller_geometry() {
 }
 
 #[tokio::test]
+async fn equalize_layout_action_reapplies_controller_geometry() {
+    let mut server = test_headless_server();
+    let mut workspace = crate::workspace::Workspace::test_new("equalize-layout-geometry");
+    let first_pane = workspace.tabs[0].root_pane;
+    let second_pane = workspace.test_split(ratatui::layout::Direction::Horizontal);
+    assert!(workspace.tabs[0].layout.set_ratio_at(&[], 0.8));
+    workspace.insert_test_runtime(
+        first_pane,
+        crate::terminal::TerminalRuntime::test_with_screen_bytes(80, 24, b""),
+    );
+    workspace.insert_test_runtime(
+        second_pane,
+        crate::terminal::TerminalRuntime::test_with_screen_bytes(80, 24, b""),
+    );
+    server.app.state.workspaces = vec![workspace];
+    server.app.state.active = Some(0);
+    server.app.state.selected = 0;
+    server.app.state.mode = crate::app::Mode::Terminal;
+    let tab_id = server.app.public_tab_id(0, 0).expect("tab id");
+
+    let (control, _) = connect_test_shell(&mut server, 67, 100, 30);
+    let _ = control.recv().expect("snapshot");
+    let before = server.app.state.workspaces[0].test_runtimes[&first_pane].current_size();
+    let (respond_to, _response_rx) = std::sync::mpsc::channel();
+
+    assert!(server.handle_client_shell_api_request(
+        67,
+        crate::api::ApiRequestMessage {
+            request: crate::api::schema::Request {
+                id: "equalize-layout".into(),
+                method: crate::api::schema::Method::LayoutEqualize(
+                    crate::api::schema::LayoutEqualizeParams {
+                        tab_id: Some(tab_id),
+                        pane_id: None,
+                    },
+                ),
+            },
+            respond_to,
+            response_write_complete: None,
+        },
+    ));
+
+    let after = server.app.state.workspaces[0].test_runtimes[&first_pane].current_size();
+    assert_ne!(after, before);
+    shutdown_test_runtimes(&mut server);
+}
+
+#[tokio::test]
 async fn public_close_reapplies_controller_geometry() {
     let mut server = test_headless_server();
     let mut workspace = crate::workspace::Workspace::test_new("public-close-geometry");
