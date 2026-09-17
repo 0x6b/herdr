@@ -250,6 +250,12 @@ fn clipboard_feedback_is_client_local_and_respects_config() {
 fn copy_last_command_output_cycles_and_writes_the_endpoint_result() {
     let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
     state.set_snapshot(Box::new(snapshot()));
+    state.set_endpoint_methods(Some(
+        crate::server::client_commands::supported_client_shell_method_names()
+            .iter()
+            .map(|method| (*method).to_owned())
+            .collect(),
+    ));
     let mut first = ClientShellInput::default();
     state.record_binding(
         crate::input::KeybindMatch::Action(crate::input::KeybindAction::CopyLastCommandOutput),

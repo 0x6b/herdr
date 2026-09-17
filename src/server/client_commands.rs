@@ -17,9 +17,11 @@ const CLIENT_SHELL_METHODS: &[&str] = &[
     "command.invoke",
     "integration.install",
     "integration.list",
+    "layout.equalize",
     "layout.set_split_ratio",
     "pane.clear",
     "pane.close",
+    "pane.command_output",
     "pane.copy_motion",
     "pane.copy_search",
     "pane.edit_scrollback",
@@ -297,6 +299,14 @@ mod tests {
             actual.remove("pane.link.resolve").as_deref(),
             Some("f5e4a3e01453ae7b188f127ce951c12c20e0bebcc17cc364eeb6d1a01fd5bf81")
         );
+        assert_eq!(
+            actual.remove("layout.equalize").as_deref(),
+            Some("2177f1e390ab3d90d25369a1c29bb5e27d9fa42d055a5e42a0b0abbb6f042f5d")
+        );
+        assert_eq!(
+            actual.remove("pane.command_output").as_deref(),
+            Some("5253dafc2c7540755d92c7940acb087f51e344519a9305e1b83276904852f6aa")
+        );
 
         assert_eq!(
             actual, expected,
@@ -371,6 +381,15 @@ mod tests {
                 col: 0,
                 content_revision: None,
                 offset_from_bottom: None,
+            },
+        )));
+        assert!(supports_client_shell_method(&Method::LayoutEqualize(
+            crate::api::schema::LayoutEqualizeParams::default(),
+        )));
+        assert!(supports_client_shell_method(&Method::PaneCommandOutput(
+            crate::api::schema::PaneCommandOutputParams {
+                pane_id: "w1:p1".into(),
+                index: 0,
             },
         )));
         assert!(!supports_client_shell_method(&Method::Ping(

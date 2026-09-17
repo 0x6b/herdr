@@ -868,9 +868,39 @@ fn help_overlay_restores_released_search_scroll_and_custom_binding_behavior() {
 }
 
 #[test]
+fn equalize_keybind_uses_the_advertised_endpoint_method() {
+    let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
+    state.set_snapshot(Box::new(snapshot()));
+    state.set_endpoint_methods(Some(
+        crate::server::client_commands::supported_client_shell_method_names()
+            .iter()
+            .map(|method| (*method).to_owned())
+            .collect(),
+    ));
+    let mut outcome = ClientShellInput::default();
+
+    state.record_binding(
+        crate::input::KeybindMatch::Action(crate::input::KeybindAction::EqualizeSplits),
+        &mut outcome,
+    );
+
+    assert!(matches!(
+        &outcome.actions[..],
+        [ClientShellAction::Endpoint { request, .. }]
+            if matches!(&request.method, crate::api::schema::Method::LayoutEqualize(_))
+    ));
+}
+
+#[test]
 fn help_search_executes_the_selected_command() {
     let mut state = ClientShellState::new(ClientShellConfig::from_config(&Config::default()));
     state.set_snapshot(Box::new(snapshot()));
+    state.set_endpoint_methods(Some(
+        crate::server::client_commands::supported_client_shell_method_names()
+            .iter()
+            .map(|method| (*method).to_owned())
+            .collect(),
+    ));
     let mut open = ClientShellInput::default();
     state.record_binding(
         crate::input::KeybindMatch::Action(crate::input::KeybindAction::Help),

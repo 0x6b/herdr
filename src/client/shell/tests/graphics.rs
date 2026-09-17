@@ -266,6 +266,7 @@ fn every_dialog_and_menu_occludes_its_panel_not_the_whole_screen() {
         ClientShellOverlay::Help(ClientHelpOverlay {
             query: TextEditor::default(),
             search_focused: false,
+            selected: 0,
             scroll: 0,
         }),
         ClientShellOverlay::Navigator(ClientNavigatorOverlay {
